@@ -1,0 +1,22 @@
+x-env-file: &env_file
+  - .env.dev
+
+version: '3'
+services:
+  frontend:
+    command: sleep infinity
+    env_file: *env_file
+  backend:
+    command: sleep infinity
+    env_file: *env_file
+  db:
+    image: postgres:16.2-bookworm
+    env_file: *env_file
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
+
+volumes:
+  pg_data:
