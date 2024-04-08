@@ -148,7 +148,6 @@ public class BoardState {
             int col = Integer.parseInt(parts[1].trim());
             game.placePiece(row, col);
             System.out.println(game.board);
-            game.setPlayer(game.currentPlayer == Color.BLACK ? Color.WHITE : Color.BLACK);
         }
 
     }
