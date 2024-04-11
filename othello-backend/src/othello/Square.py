@@ -1,19 +1,19 @@
 from Color import Color
 
 class Square:
-    def __init__(self, row, col, is_occupied=False, color=None):
+    def __init__(self, row, col, color=Color.EMPTY, stability=0):
         """
         Initialize a new Square instance.
 
         :param row: The row position of the square.
         :param col: The column position of the square.
-        :param is_occupied: Boolean indicating if the square is occupied.
         :param color: The color of the square, if any.
+        :param stability: The stability of the square. Used for heuristic evaluation.
         """
         self.row = row
         self.col = col
-        self.is_occupied = is_occupied
         self.color = color
+        self.stability = stability
         self.neighbors = []
         self.neighbor_map = {Color.BLACK: [], Color.WHITE: [], Color.EMPTY: []}
 
@@ -40,6 +40,18 @@ class Square:
         self.color = color
         for neighbor in self.neighbors:
             neighbor.update_neighbor_map(self)
+            
+    def update_neighbor_map(self, neighbor):
+        """
+        Updates the neighborMap of the current square. This method assumes that the neighborMap
+        of the current square has already been initialized. It updates the map to reflect any
+        change in the color of the neighbor squares.
+
+        :param neighbor: The square to be updated in the neighborMap.
+        """
+        removeFrom = self.get_key_from_square(neighbor)
+        self.neighbor_map[removeFrom].remove(neighbor)
+        self.neighbor_map[neighbor.color].append(neighbor)
 
     def get_key_from_square(self, neighbor):
         """
@@ -53,18 +65,6 @@ class Square:
             if neighbor in self.neighbor_map[color]:
                 return color
         return None
-
-    def update_neighbor_map(self, neighbor):
-        """
-        Updates the neighborMap of the current square. This method assumes that the neighborMap
-        of the current square has already been initialized. It updates the map to reflect any
-        change in the color of the neighbor squares.
-
-        :param neighbor: The square to be updated in the neighborMap.
-        """
-        removeFrom = self.get_key_from_square(neighbor)
-        self.neighbor_map[removeFrom].remove(neighbor)
-        self.neighbor_map[neighbor.color].append(neighbor)
 
     def __str__(self):
         """
