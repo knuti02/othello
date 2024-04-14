@@ -26,12 +26,12 @@ class OthelloBoard:
         self.direction_map = {
             Directions.NORTH: (-1, 0),
             Directions.SOUTH: (1, 0),
-            Directions.EAST: (0, -1),
-            Directions.WEST: (0, 1),
-            Directions.NORTH_EAST: (-1, -1),
-            Directions.NORTH_WEST: (-1, 1),
-            Directions.SOUTH_EAST: (1, -1),
-            Directions.SOUTH_WEST: (1, 1)
+            Directions.EAST: (0, 1),
+            Directions.WEST: (0, -1),
+            Directions.NORTH_EAST: (-1, 1),
+            Directions.NORTH_WEST: (-1, -1),
+            Directions.SOUTH_EAST: (1, 1),
+            Directions.SOUTH_WEST: (1, -1)
         }
 
     def get_board_dimension(self):
@@ -54,25 +54,32 @@ class OthelloBoard:
 
     # Returns the direction of the neighbor
     def get_direction_of_neighbor(self, origin, target):
-        x = target.row - origin.row
-        y = target.col - origin.col
+        row = target.row - origin.row
+        col = target.col - origin.col
 
         # Ugly code but is needed because of the way the directions are stored
-        if x == -1 and y == 0:
+        if row == -1 and col == 0:
             return Directions.NORTH
-        elif x == 1 and y == 0:
+        
+        elif row == 1 and col == 0:
             return Directions.SOUTH
-        elif x == 0 and y == -1:
+        
+        elif row == 0 and col == 1:
             return Directions.EAST
-        elif x == 0 and y == 1:
+        
+        elif row == 0 and col == -1:
             return Directions.WEST
-        elif x == -1 and y == -1:
+        
+        elif row == -1 and col == 1:
             return Directions.NORTH_EAST
-        elif x == -1 and y == 1:
+        
+        elif row == -1 and col == -1:
             return Directions.NORTH_WEST
-        elif x == 1 and y == -1:
+        
+        elif row == 1 and col == 1:
             return Directions.SOUTH_EAST
-        elif x == 1 and y == 1:
+        
+        elif row == 1 and col == -1:
             return Directions.SOUTH_WEST
         else:
             return None  # Should be unreachable
