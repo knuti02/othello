@@ -1,4 +1,4 @@
-from Color import Color
+from .Color import Color
 
 class Square:
     def __init__(self, row, col, color=Color.EMPTY, stability=0):

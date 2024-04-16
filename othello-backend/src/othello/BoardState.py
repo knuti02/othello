@@ -1,12 +1,11 @@
-from Color import Color
-from OthelloBoard import OthelloBoard
-
 from collections import defaultdict
 
-from Directions import Directions
+from .Color import Color
+from .Directions import Directions
+from .OthelloBoard import OthelloBoard
 
 class BoardState:
-    def __init__(self, board, current_player):
+    def __init__(self, board = OthelloBoard(8,8), current_player = Color.BLACK):
         """
         Initializes the BoardState object with the provided board and current player.
 
@@ -16,11 +15,12 @@ class BoardState:
         """
         self.board = board
         self.current_player = current_player
+        self.skipped_turns = 0
         
         # Basically a map which stores the pieces of each color
-        self.places_pieces_map = defaultdict(list)
-        self.places_pieces_map[Color.BLACK] = []
-        self.places_pieces_map[Color.WHITE] = []
+        self.player_pieces_map = defaultdict(list)
+        self.player_pieces_map[Color.BLACK] = []
+        self.player_pieces_map[Color.WHITE] = []
         
         # Caches to clear after each move
         # To avoid recalculating the same thing multiple times
@@ -44,20 +44,20 @@ class BoardState:
             for col in [3, 4]:
                 square = self.board.get_square(row, col)
                 square.stability = -1
-                self.places_pieces_map[square.color].append(square)
+                self.player_pieces_map[square.color].append(square)
         
 
-    def get_valid_moves(self, current_player) -> set:
+    def get_valid_moves(self, player) -> set:
         """
         Returns a set of valid moves given the current board state.
 
         Returns:
             set: A set containing valid moves (empty squares where a piece can be placed).
         """
-        if self.valid_moves_cache[current_player]:
-            return self.valid_moves_cache[current_player]
+        if self.valid_moves_cache[player]:
+            return self.valid_moves_cache[player]
         # Get the target color
-        target_color = Color.WHITE if current_player == Color.BLACK else Color.BLACK
+        target_color = Color.WHITE if player == Color.BLACK else Color.BLACK
         # Initialize the set of valid moves
         init_valid_moves = set()
         # Populate the initial valid moves
@@ -65,7 +65,7 @@ class BoardState:
         # Filter the final valid moves
         valid_moves = self.filter_final_valid_moves(init_valid_moves, target_color)
         # Cache the result
-        self.valid_moves_cache[current_player] = valid_moves
+        self.valid_moves_cache[player] = valid_moves
         # Return the valid moves
         return valid_moves
         
@@ -86,39 +86,59 @@ class BoardState:
         square = self.board.get_square(row, col)
         # Check if the square is in the valid moves
         if square not in self.get_valid_moves(self.current_player):
-            raise ValueError("Not a valid move!")
+            print("Invalid move")
+            return False
 
         # Place the piece on the square
         square.set_color(self.current_player)
-        # Update the places_pieces_map
-        self.places_pieces_map[self.current_player].append(square)
+        # Update the player_pieces_map
+        self.player_pieces_map[self.current_player].append(square)
         for neighbor in square.neighbors:
             direction = self.board.get_direction_of_neighbor(square, neighbor)
             if self.can_flank_in_direction(neighbor, direction, target_color):
                 self.flip_pieces(square, direction, target_color)
 
-        # The move was successful, so clear caches
-        self.can_flank_in_direction_cache.clear()
-        self.valid_moves_cache[Color.WHITE].clear()
-        self.valid_moves_cache[Color.BLACK].clear()
-        self.capturable_squares_cache[Color.WHITE].clear()
-        self.capturable_squares_cache[Color.BLACK].clear()
-        
-        # We need to update the stability of every square that was affected by the move
-        self.chain_update_stability(square)
-        
-        # Finnaly done, switch the player
-        self.set_player(target_color)
-
+        self.skipped_turns = 0
+        self.placed_piece = square
+        return True
+    
+    def skip_turn(self):
+        self.skipped_turns += 1
+        # If players has skipped 3 turns, then the game is over
+        if self.skipped_turns == 3:
+            self.get_winner()
+    
+    def next_turn(self):
+        self.clear_caches()
+        try:
+            self.chain_update_stability(self.placed_piece)
+        except:
+            # If this hits, mean someone skipped their turn
+            pass
+        self.set_player(Color.WHITE if self.current_player == Color.BLACK else Color.BLACK)
+    
+    def is_game_over(self):
+        if (len(self.player_pieces_map[Color.BLACK]) + len(self.player_pieces_map[Color.WHITE]) == self.board.amount_of_squares):
+            return True
+        return False
+    
+    def get_winner(self):
+        black_pieces = len(self.player_pieces_map[Color.BLACK])
+        white_pieces = len(self.player_pieces_map[Color.WHITE])
+        if black_pieces > white_pieces:
+            return Color.BLACK
+        elif white_pieces > black_pieces:
+            return Color.WHITE
+        return None
 
     # All the functions below are helper functions for the methods above, 
-    # except for print_get_valid_moves which is for debugging purposes
+    # except for print_get_valid_moves which is for debugging purposes    
     
     # Populates the initial valid moves by adding all the empty squares that are neighbors to the target color.
     # This reduces the number of minimum squares to check for valid moves, as we only need to check the neighbors 
     # of the target color, instead of all the empty squares.
     def populate_initial_valid_moves(self, init_valid_moves, target_color):
-        for square in self.places_pieces_map[target_color]:
+        for square in self.player_pieces_map[target_color]:
             init_valid_moves.update(square.neighbor_map[Color.EMPTY])
 
     # Filters the final valid moves by checking if the square is a valid move
@@ -128,10 +148,10 @@ class BoardState:
             if self.is_valid_move(square, target_color):
                 final_valid_moves.add(square)
         
-        opponent_color = Color.WHITE if target_color == Color.BLACK else Color.BLACK
-        print("CURRENTLY CAPTURABLE BY" , opponent_color, ":")
-        for square in self.capturable_squares_cache[opponent_color]:
-            print(square)
+        # opponent_color = Color.WHITE if target_color == Color.BLACK else Color.BLACK
+        # print("CURRENTLY CAPTURABLE BY" , opponent_color, ":")
+        # for square in self.capturable_squares_cache[opponent_color]:
+        #     print(square)
         return final_valid_moves
 
     # Checks if the move is valid by checking if the square can flank in any direction
@@ -193,9 +213,9 @@ class BoardState:
             # Fix an edge-case bug where the stability of the square is not updated in time
             # if self.is_safe_square(current_square):
             #     current_square.stability = 1
-            # update the places_pieces_map
-            self.places_pieces_map[target_color].remove(current_square)
-            self.places_pieces_map[self.current_player].append(current_square)
+            # update the player_pieces_map
+            self.player_pieces_map[target_color].remove(current_square)
+            self.player_pieces_map[self.current_player].append(current_square)
 
     # Steps:
     # Place the new piece on the board.
@@ -216,6 +236,9 @@ class BoardState:
             # Dequeue from the queue
             current_square = queue.pop(0)
             for neighbor in current_square.neighbors:
+                # No need to check for empty squares, as they can never change stability
+                if neighbor.color == Color.EMPTY:
+                    continue
                 # If the neighbor is already visited, then continue
                 if neighbor in visited:
                     continue
@@ -223,15 +246,16 @@ class BoardState:
                 if neighbor.stability == 1:
                     continue
                 
-                old_stability = neighbor.stability
+                # old_stability = neighbor.stability
                 self.update_stability(neighbor)
-                new_stability = neighbor.stability
+                # new_stability = neighbor.stability
                 
                 # If the stability has not changed, then continue
                 # This is because, if we have reached the end of updating the stability chain
                 # we should not need to update the rest of the chain to reduce the number of updates
-                if old_stability == new_stability:
-                    continue
+                # if old_stability == new_stability:
+                #     continue
+                # i really dont think that works unfortunately
                 
                 # If the stability has changed, then enqueue the neighbor
                 queue.append(neighbor)
@@ -329,16 +353,21 @@ class BoardState:
         
         
     # Prints the valid moves for play in the console
-    def print_get_valid_moves(self):
-        valid_moves = self.get_valid_moves(self.current_player)
-        print("VALID MOVES: ")
+    def print_get_valid_moves(self, player):
+        valid_moves = self.get_valid_moves(player)
         for move in valid_moves:
             print(move)
+            
+    def clear_caches(self):
+        self.can_flank_in_direction_cache.clear()
+        self.valid_moves_cache[Color.WHITE].clear()
+        self.valid_moves_cache[Color.BLACK].clear()
+        self.capturable_squares_cache[Color.WHITE].clear()
+        self.capturable_squares_cache[Color.BLACK].clear()
         
         
 if __name__ == "__main__":
-    board = OthelloBoard(8, 8)
-    game = BoardState(board, Color.BLACK)
+    game = BoardState()
     game.init()
     print(game.board)
     while True:

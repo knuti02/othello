@@ -1,6 +1,6 @@
-from Directions import Directions
-from Color import Color
-from Square import Square
+from .Directions import Directions
+from .Color import Color
+from .Square import Square
 
 class OthelloBoard:
     def __init__(self, y, x):
@@ -33,6 +33,8 @@ class OthelloBoard:
             Directions.SOUTH_EAST: (1, 1),
             Directions.SOUTH_WEST: (1, -1)
         }
+        
+        self.amount_of_squares = y * x
 
     def get_board_dimension(self):
         return self.board_dimension
@@ -94,9 +96,9 @@ class OthelloBoard:
         sb = []
         for row_index, row in enumerate(self.board_dimension):
             sb.append(f"{row_index}|")  # Add row index at the start of each row
-            sb.append("|".join([f"{color_map[square.color]}{square.color.name + str(square.stability)}{reset_color}" for square in row]) + "|")
+            sb.append("|".join([f"{color_map[square.color]}{square.color.name}{reset_color}" for square in row]) + "|")
             sb.append("\n")
-        col_header = "    " + "      ".join([str(col_index) for col_index in range(len(self.board_dimension[0]))])  # Add column headers
+        col_header = "    " + "     ".join([str(col_index) for col_index in range(len(self.board_dimension[0]))])  # Add column headers
         return col_header + "\n" + ''.join(sb)
 
 if __name__ == "__main__":
