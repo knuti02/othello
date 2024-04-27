@@ -32,7 +32,12 @@ def stability_heuristics(placed_pieces, current_squares, opponent_squares, dynam
     current_player_stability = get_stability(current_squares)
     opponent_stability = get_stability(opponent_squares)
     
+    stability_denominator = abs(current_player_stability) + abs(opponent_stability)
+    # prevent division by zero
+    if stability_denominator == 0:
+        return 0
+    
     # Calculate combined stability using the weighted difference between current player's and opponent's stability
-    combined_stability = weight * ((current_player_stability - opponent_stability) / (abs(current_player_stability) + abs(opponent_stability)))
+    combined_stability = weight * ((current_player_stability - opponent_stability) / stability_denominator)
     
     return combined_stability

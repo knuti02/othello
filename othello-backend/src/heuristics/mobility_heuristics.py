@@ -12,6 +12,9 @@ def mobility_heuristics(gamestate, placed_pieces, current_squares, opponent_squa
         current_valid_moves = gamestate.get_valid_moves(current)
         opponent_valid_moves = gamestate.get_valid_moves(opponent)
         
+        if len(current_valid_moves) + len(opponent_valid_moves) == 0:
+            print(gamestate.board)
+        
         mobility = len(current_valid_moves) / (len(current_valid_moves) + len(opponent_valid_moves))
         return mobility
     

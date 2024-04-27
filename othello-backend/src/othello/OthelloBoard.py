@@ -4,10 +4,10 @@ from .Square import Square
 
 class OthelloBoard:
     def __init__(self, y, x):
-        corners = [(0, 0), (0, x - 1), (y - 1, 0), (y - 1, x - 1)]
         self.board_dimension = [[Square(row, col) for col in range(x)] for row in range(y)]
-        for corner in corners:
-            self.board_dimension[corner[0]][corner[1]].stability = 1
+        self.corners = [self.get_square(0, 0), self.get_square(0, x - 1), self.get_square(y - 1, 0), self.get_square(y - 1, x - 1)]
+        for corner in self.corners:
+            corner.stability = 1
         
         # Add neighbors
         for row in range(y):
@@ -21,7 +21,6 @@ class OthelloBoard:
                             continue
                         current_square.add_neighbor(self.get_square(row + i, col + j))
         
-        self.corners = [(0, 0), (0, x - 1), (y - 1, 0), (y - 1, x - 1)]
         
         self.direction_map = {
             Directions.NORTH: (-1, 0),

@@ -64,6 +64,9 @@ class BoardState:
         self.populate_initial_valid_moves(init_valid_moves, target_color)
         # Filter the final valid moves
         valid_moves = self.filter_final_valid_moves(init_valid_moves, target_color)
+        if len(valid_moves) == 0:
+            # Add skip to valid moves if no valid moves are available
+            valid_moves.add("skip")
         # Cache the result
         self.valid_moves_cache[player] = valid_moves
         # Return the valid moves
@@ -86,7 +89,6 @@ class BoardState:
         square = self.board.get_square(row, col)
         # Check if the square is in the valid moves
         if square not in self.get_valid_moves(self.current_player):
-            print("Invalid move")
             return False
 
         # Place the piece on the square
@@ -104,9 +106,6 @@ class BoardState:
     
     def skip_turn(self):
         self.skipped_turns += 1
-        # If players has skipped 3 turns, then the game is over
-        if self.skipped_turns == 3:
-            self.get_winner()
     
     def next_turn(self):
         self.clear_caches()
@@ -118,17 +117,26 @@ class BoardState:
         self.set_player(Color.WHITE if self.current_player == Color.BLACK else Color.BLACK)
     
     def is_game_over(self):
+        # Case 1: No empty squares left
         if (len(self.player_pieces_map[Color.BLACK]) + len(self.player_pieces_map[Color.WHITE]) == self.board.amount_of_squares):
             return True
+        # Case 2: A player has no squares left
+        if (len(self.player_pieces_map[Color.BLACK]) == 0 or len(self.player_pieces_map[Color.WHITE]) == 0):
+            return True
+        
+        # Case 3: Skipped 2 times in a row (no valid moves left for both players)
+        if self.skipped_turns == 2:
+            return True
+        
         return False
     
-    def get_winner(self):
+    def get_winner(self):        
         black_pieces = len(self.player_pieces_map[Color.BLACK])
         white_pieces = len(self.player_pieces_map[Color.WHITE])
         if black_pieces > white_pieces:
             return Color.BLACK
         elif white_pieces > black_pieces:
-            return Color.WHITE
+            return Color.WHITE            
         return None
 
     # All the functions below are helper functions for the methods above, 

@@ -18,7 +18,7 @@ def corners_heuristics(gamestate, placed_pieces, current_squares, opponent_squar
                 corners_value += 0
                 continue
             # Can not occupy the corner
-            corners_value -= 1
+            corners_value += -1
 
         return corners_value
     
