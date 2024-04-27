@@ -21,6 +21,8 @@ def input_move(game):
             return
 
 def play_against_AI(game, player):
+    agent = MinMaxAgent(cache={})
+
     def print_heuristics():
         print("\nCurrent evaluation: ")
         print("------------------------------------------------------------------------------")
@@ -42,9 +44,11 @@ def play_against_AI(game, player):
             print_heuristics()
             continue
         
-        # print("AI's possible moves: ")
-        # game.print_get_valid_moves(game.current_player)
-        _, move = MinMaxAgent(game, combined_heuristics, 5, cache={})
+        _, move = agent.get_best_move(game, combined_heuristics, 5)
+        agent.clear_cache()
+        
+        # _, move = MinMaxAgent(game, combined_heuristics, 5, cache={})
+        
         print("AI move: ", move)
         game.place_piece(move.row, move.col)
         print(game.board)
@@ -84,6 +88,7 @@ def play_against_player(game):
 
 def play_AI_vs_AI(game):
     print(game.board)
+    agent = MinMaxAgent(cache={})    
     
     while game.is_game_over() == False:
         print("Current player:", game.current_player.name)
@@ -91,7 +96,7 @@ def play_AI_vs_AI(game):
         game.print_get_valid_moves(game.current_player)
         
         start = time.time()
-        _, move = MinMaxAgent(game, combined_heuristics, 5, cache={})
+        _, move = agent.get_best_move(game, combined_heuristics, 5)
         end = time.time()
         print("AI move: ", move)
         print("Move took: ", end - start, " seconds")
