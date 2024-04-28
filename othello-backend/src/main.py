@@ -100,7 +100,9 @@ def play_AI_vs_AI(game):
         end = time.time()
         print("AI move: ", move)
         print("Move took: ", end - start, " seconds")
-        print("Deepcopy time: ", agent.deepcopy_time, " seconds")
+
+        print("Time for copying: ", agent.deepcopy_time)
+        
         agent.deepcopy_time = 0
         if move == "skip":
             game.skip_turn()

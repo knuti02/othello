@@ -4,6 +4,8 @@ from .Color import Color
 from .Directions import Directions
 from .OthelloBoard import OthelloBoard
 
+import time
+
 class BoardState:
     def __init__(self, board = OthelloBoard(8,8), current_player = Color.BLACK):
         """
@@ -401,8 +403,7 @@ class BoardState:
         Args:
             game_str (dict): The representation of the game state.
         """
-    
-    
+            
         # Reset player pieces map
         self.player_pieces_map = defaultdict(list)
         self.player_pieces_map[Color.BLACK] = []
@@ -418,25 +419,28 @@ class BoardState:
             self.board.get_square(square["row"], square["col"]).stability = square["stability"]
                         
             # by using the id's we can set the neighbors
-            self.board.get_square(square["row"], square["col"]).neighbors = [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor"]]                        
-            self.board.get_square(square["row"], square["col"]).neighbor_map = {
-                Color.BLACK: [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor_map"][Color.BLACK]],
-                Color.WHITE: [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor_map"][Color.WHITE]],
-                Color.EMPTY: [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor_map"][Color.EMPTY]]
+            self.board.get_square(square["row"], square["col"]).neighbors = [self.board.get_square(int(coord[0]), int(coord[1])) for coord in square["neighbor"]]                      
+            neighbor_map = {
+                Color.BLACK: [],
+                Color.WHITE: [],
+                Color.EMPTY: []
             }
-                        
+
+            for color in Color:
+                neighbor_map[color] = [self.board.get_square(int(coord[0]), int(coord[1])) for coord in square["neighbor_map"][color]]
+
+            self.board.get_square(square["row"], square["col"]).neighbor_map = neighbor_map
+        
+        
+                    
         # Add the squares to the player pieces map
         for square in self.board.get_all_squares():
             if square.color != Color.EMPTY:
                 self.player_pieces_map[square.color].append(square)
         
-        
-        print("Game reconstructed; doing post work... ")
         self.clear_caches()
         _ = self.get_valid_moves(self.current_player)
-        print("Post work done!")
-        
-        
+                
         
     def create_dict(self):
         """

@@ -1,4 +1,3 @@
-import copy
 import numpy as np
 from othello.Color import Color 
 import time
@@ -13,6 +12,11 @@ class MinMaxAgent:
         if depth == 0 or gamestate.is_game_over():
             value = heuristic_function(gamestate, player)
             return value, None
+        
+        start = time.time()
+        game_dict = gamestate.create_dict()
+        end = time.time()
+        self.deepcopy_time += end - start
         
         player = gamestate.current_player
 
@@ -35,14 +39,9 @@ class MinMaxAgent:
         min_value = float('inf')
         best_move = None
 
-        valid_moves = gamestate.get_valid_moves(player)
+        valid_moves = gamestate.get_valid_moves(player).copy()
 
         for move in valid_moves:
-            # start = time.time()
-            # gamestate_copy = copy.deepcopy(gamestate)
-            # end = time.time()
-            # self.deepcopy_time += end - start
-            
             gamestate_copy = gamestate
             
             if move == "skip":
@@ -51,6 +50,11 @@ class MinMaxAgent:
                 gamestate_copy.place_piece(move.row, move.col)
             gamestate_copy.next_turn()
             value, _ = self.get_best_move(gamestate_copy, heuristic_function, depth - 1, alpha, beta, not is_maximizing, player)
+            
+            start = time.time()
+            gamestate_copy.reconstruct_from_dict(game_dict)
+            end = time.time()
+            self.deepcopy_time += end - start
 
             if is_maximizing:
                 if value > max_value:
@@ -95,8 +99,8 @@ class MinMaxAgent:
         if number_of_pieces > 16:
             return False, None
         
-        board = copy.deepcopy(gamestate.board.board_dimension)
-        
+        board = gamestate.board.board_dimension 
+                
         # Rotate the board
         for _ in range(4): # Rotate the board 4 times
             rotated_board = np.rot90(board)            
