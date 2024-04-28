@@ -50,7 +50,10 @@ def play_against_AI(game, player):
         # _, move = MinMaxAgent(game, combined_heuristics, 5, cache={})
         
         print("AI move: ", move)
-        game.place_piece(move.row, move.col)
+        if move == "skip":
+            game.skip_turn()
+        else:
+            game.place_piece(move.row, move.col)
         print(game.board)
         game.next_turn()
         print_heuristics()
