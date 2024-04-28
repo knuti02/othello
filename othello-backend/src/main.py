@@ -72,7 +72,6 @@ def play_against_player(game):
         
         input_move(game)
         
-        
         game.next_turn()
         opponent = Color.WHITE if game.current_player == Color.BLACK else Color.BLACK
         print("Move done!\n")
@@ -83,8 +82,9 @@ def play_against_player(game):
         print("------------------------------------------------------------------------------")
         print("Your opponent's (", opponent.name, ") current evaluation:", combined_heuristics(game, opponent))
         print("------------------------------------------------------------------------------")
-                
+        
         print(game.board)
+        
 
 def play_AI_vs_AI(game):
     print(game.board)
@@ -100,6 +100,8 @@ def play_AI_vs_AI(game):
         end = time.time()
         print("AI move: ", move)
         print("Move took: ", end - start, " seconds")
+        print("Deepcopy time: ", agent.deepcopy_time, " seconds")
+        agent.deepcopy_time = 0
         if move == "skip":
             game.skip_turn()
         else:

@@ -254,17 +254,7 @@ class BoardState:
                 if neighbor.stability == 1:
                     continue
                 
-                # old_stability = neighbor.stability
                 self.update_stability(neighbor)
-                # new_stability = neighbor.stability
-                
-                # If the stability has not changed, then continue
-                # This is because, if we have reached the end of updating the stability chain
-                # we should not need to update the rest of the chain to reduce the number of updates
-                # if old_stability == new_stability:
-                #     continue
-                # i really dont think that works unfortunately
-                
                 # If the stability has changed, then enqueue the neighbor
                 queue.append(neighbor)
                 # Mark the neighbor as visited to avoid updating it again
@@ -348,7 +338,7 @@ class BoardState:
 
         # Find valid moves for opponent, this will init the caches and give us capturable squares 
         opponent_color = Color.WHITE if square.color == Color.BLACK else Color.BLACK
-        # get_valid_moves will update the capturable_squares_cache for opponent color
+        # get_valid_moves will update the capturable_squares_cache for opponent color'
         _ = self.get_valid_moves(opponent_color)
         if square in self.capturable_squares_cache[opponent_color]:
             return True
@@ -372,7 +362,105 @@ class BoardState:
         self.valid_moves_cache[Color.BLACK].clear()
         self.capturable_squares_cache[Color.WHITE].clear()
         self.capturable_squares_cache[Color.BLACK].clear()
+    
+    
+    def reconstruct_from_dict(self, game: dict):
+        """
+        Reconstructs the game state from a dict
+        should be as follows (example):
+        {
+            "current_player": "BLACK",
+            "skipped_turns": 0,
+            "squares": [
+                {
+                    "id": "00",
+                    "row": 0,
+                    "col": 0,
+                    "color": "EMPTY",
+                    "stability": 1
+                    "neighbors": [ # List of ids of neighbors
+                        "01", 
+                        "10", 
+                        "11"
+                    ]
+                    "neighbors_map": {
+                        "BLACK": [
+                        ],
+                        "WHITE": [
+                        ],
+                        "EMPTY": [
+                            "01",
+                            "10",
+                            "11"
+                        ]
+                    }
+                }
+            ]
+        }
+
+        Args:
+            game_str (dict): The representation of the game state.
+        """
+    
+    
+        # Reset player pieces map
+        self.player_pieces_map = defaultdict(list)
+        self.player_pieces_map[Color.BLACK] = []
+        self.player_pieces_map[Color.WHITE] = []
+        # Set the current player
+        self.current_player = Color[game["current_player"]]
+        # Set the skipped turns
+        self.skipped_turns = game["skipped_turns"]
+        # Reconstruct the squares
+        for square in game["squares"]:
+            # Note color is now a string, we need to convert it to the Color enum
+            self.board.get_square(square["row"], square["col"]).color = Color[square["color"]]
+            self.board.get_square(square["row"], square["col"]).stability = square["stability"]
+                        
+            # by using the id's we can set the neighbors
+            self.board.get_square(square["row"], square["col"]).neighbors = [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor"]]                        
+            self.board.get_square(square["row"], square["col"]).neighbor_map = {
+                Color.BLACK: [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor_map"][Color.BLACK]],
+                Color.WHITE: [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor_map"][Color.WHITE]],
+                Color.EMPTY: [self.board.get_square(sqr["row"], sqr["col"]) for sqr in game["squares"] if sqr["id"] in square["neighbor_map"][Color.EMPTY]]
+            }
+                        
+        # Add the squares to the player pieces map
+        for square in self.board.get_all_squares():
+            if square.color != Color.EMPTY:
+                self.player_pieces_map[square.color].append(square)
         
+        
+        print("Game reconstructed; doing post work... ")
+        self.clear_caches()
+        _ = self.get_valid_moves(self.current_player)
+        print("Post work done!")
+        
+        
+        
+    def create_dict(self):
+        """
+        Creates a dict representation of the game state.
+        Should be as described in the reconstruct_from_dict method.
+        """
+        game = {"current_player": self.current_player.name, "skipped_turns": self.skipped_turns, "squares": []}
+        for square in self.board.get_all_squares():
+            game["squares"].append({
+                "id": str(square.row) + str(square.col),
+                "row": square.row,
+                "col": square.col,
+                "color": square.color.name,
+                "stability": square.stability,
+                "neighbor": [(str(neighbor.row) + str(neighbor.col)) for neighbor in square.neighbors],
+                "neighbor_map": {
+                    Color.BLACK: [str(neighbor.row) + str(neighbor.col) for neighbor in square.neighbor_map[Color.BLACK]],
+                    Color.WHITE: [str(neighbor.row) + str(neighbor.col) for neighbor in square.neighbor_map[Color.WHITE]],
+                    Color.EMPTY: [str(neighbor.row) + str(neighbor.col) for neighbor in square.neighbor_map[Color.EMPTY]]
+                }
+            })
+            
+        return game
+    
         
 if __name__ == "__main__":
     game = BoardState()

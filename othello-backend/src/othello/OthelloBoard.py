@@ -85,6 +85,10 @@ class OthelloBoard:
         else:
             return None  # Should be unreachable
 
+    def get_all_squares(self):
+        # Should return a list of all squares on the board
+        return [square for row in self.board_dimension for square in row]
+
     def __str__(self):
         color_map = {
             Color.EMPTY: "\033[90m",  # Grey

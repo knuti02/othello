@@ -1,10 +1,12 @@
 import copy
 import numpy as np
 from othello.Color import Color 
+import time
 
 class MinMaxAgent:
     def __init__(self, cache):
         self.cache = cache
+        self.deepcopy_time = 0
         
     def get_best_move(self, gamestate, heuristic_function, depth = 5, alpha=-float('inf'), beta=float('inf'), is_maximizing=True, player=None):            
         # Base case
@@ -36,7 +38,13 @@ class MinMaxAgent:
         valid_moves = gamestate.get_valid_moves(player)
 
         for move in valid_moves:
-            gamestate_copy = copy.deepcopy(gamestate)
+            # start = time.time()
+            # gamestate_copy = copy.deepcopy(gamestate)
+            # end = time.time()
+            # self.deepcopy_time += end - start
+            
+            gamestate_copy = gamestate
+            
             if move == "skip":
                 gamestate_copy.skip_turn()
             else:
@@ -95,11 +103,9 @@ class MinMaxAgent:
             mirror_horizontal = ''.join([square.color.name[0] for row in np.flipud(rotated_board) for square in row])
             mirror_vertical = ''.join([square.color.name[0] for row in np.fliplr(rotated_board) for square in row])
             if mirror_horizontal in self.cache:
-                print("Mirrored board (horizontal) detected")
                 return True, mirror_horizontal
             
             elif mirror_vertical in self.cache:
-                print("Mirrored board (vertical) detected")
                 return True, mirror_vertical
         
         return False, None
