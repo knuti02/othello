@@ -4,8 +4,6 @@ from .Color import Color
 from .Directions import Directions
 from .OthelloBoard import OthelloBoard
 
-import time
-
 class BoardState:
     def __init__(self, board = OthelloBoard(8,8), current_player = Color.BLACK):
         """
@@ -464,18 +462,3 @@ class BoardState:
             })
             
         return game
-    
-        
-if __name__ == "__main__":
-    game = BoardState()
-    game.init()
-    print(game.board)
-    while True:
-        game.print_get_valid_moves()
-        print("\nChoose square to place (row,col)")
-        coords = input()
-        parts = coords.split(",")
-        row = int(parts[0].strip())
-        col = int(parts[1].strip())
-        game.place_piece(row, col)
-        print(game.board)
