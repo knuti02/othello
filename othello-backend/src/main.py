@@ -8,6 +8,11 @@ def input_move(game):
     while True:
         move = input("\nEnter move (row,col): ")
 
+        if move == "undo":
+            game.undo_move()
+            break
+    
+
         if move == "skip":
             game.skip_turn()
             break
@@ -46,16 +51,14 @@ def play_against_AI(game, player):
         
         _, move = agent.get_best_move(game, combined_heuristics, 5)
         agent.clear_cache()
-        
-        # _, move = MinMaxAgent(game, combined_heuristics, 5, cache={})
-        
+                
         print("AI move: ", move)
         if move == "skip":
             game.skip_turn()
         else:
             game.place_piece(move.row, move.col)
-        print(game.board)
         game.next_turn()
+        print(game.board)
         print_heuristics()
         
 def play_against_player(game):
@@ -66,12 +69,6 @@ def play_against_player(game):
         print("Current player:", game.current_player.name)
         print("Current player's possible moves: ")
         game.print_get_valid_moves(game.current_player)
-        
-
-        # for debugging purposes
-        # print("\nOpponent player:", opponent.name)
-        # print("Opponent player's possible moves: ")
-        # game.print_get_valid_moves(opponent)
         
         input_move(game)
         
@@ -99,20 +96,19 @@ def play_AI_vs_AI(game):
         game.print_get_valid_moves(game.current_player)
         
         start = time.time()
-        _, move = agent.get_best_move(game, combined_heuristics, 5)
+        _, move = agent.get_best_move(game, combined_heuristics, 7)
         end = time.time()
         print("AI move: ", move)
         print("Move took: ", end - start, " seconds")
-
-        print("Time for copying: ", agent.deepcopy_time)
+        print("Test time: ", agent.test_time)
         
         agent.deepcopy_time = 0
         if move == "skip":
             game.skip_turn()
         else:
             game.place_piece(move.row, move.col)
-        print(game.board)
         game.next_turn()
+        print(game.board)
         print("Move done!\n")
         
         print("\nCurrent evaluation: ")

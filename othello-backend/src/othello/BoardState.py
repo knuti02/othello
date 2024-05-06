@@ -16,11 +16,15 @@ class BoardState:
         self.board = board
         self.current_player = current_player
         self.skipped_turns = 0
+        self.placed_piece = None
         
         # Basically a map which stores the pieces of each color
         self.player_pieces_map = defaultdict(list)
         self.player_pieces_map[Color.BLACK] = []
         self.player_pieces_map[Color.WHITE] = []
+        
+        # Move history; stores moves and which pieces were flipped as a result
+        self.move_history = []
         
         # Caches to clear after each move
         # To avoid recalculating the same thing multiple times
@@ -29,7 +33,7 @@ class BoardState:
         self.capturable_squares_cache = {Color.BLACK: set(), Color.WHITE: set()} # Stores the capturable squares for each color at the current state
         self.valid_moves_cache = {Color.BLACK: set(), Color.WHITE: set()} # Stores the valid moves for each color at the current state
 
-    def init(self, current_player=Color.BLACK):
+    def init(self):
         """Sets the initial pieces on the board."""
         # Note: we cant use place_piece here because place_piece checks for valid moves which are not available yet
         # Set the initial pieces' color
@@ -91,6 +95,11 @@ class BoardState:
         if square not in self.get_valid_moves(self.current_player):
             return False
 
+        # Add the move to the move history
+        self.move_history.append((
+            (square.row, square.col), [], self.placed_piece
+        ))
+        
         # Place the piece on the square
         square.set_color(self.current_player)
         # Update the player_pieces_map
@@ -109,11 +118,7 @@ class BoardState:
     
     def next_turn(self):
         self.clear_caches()
-        try:
-            self.chain_update_stability(self.placed_piece)
-        except:
-            # If this hits, mean someone skipped their turn
-            pass
+        self.chain_update_stability(self.placed_piece)
         self.set_player(Color.WHITE if self.current_player == Color.BLACK else Color.BLACK)
     
     def is_game_over(self):
@@ -137,10 +142,58 @@ class BoardState:
             return Color.BLACK
         elif white_pieces > black_pieces:
             return Color.WHITE            
-        return None
-
-    # All the functions below are helper functions for the methods above, 
-    # except for print_get_valid_moves which is for debugging purposes    
+        return None 
+    
+    
+    def undo_move(self):
+        if not self.move_history:
+            return False
+        # New player is the opposite of the current player
+        new_player = Color.WHITE if self.current_player == Color.BLACK else Color.BLACK
+        # Get the last move
+        last_move = self.move_history.pop()
+        # Get the square of the last move
+        square = self.board.get_square(last_move[0][0], last_move[0][1])
+        # Set the square color to empty
+        square.set_color(Color.EMPTY)
+        # Update stability to 0, unless it's a corner in which case it's 1
+        square.stability = 1 if square in self.board.corners else 0
+        # Update the player pieces map
+        try:
+            self.player_pieces_map[new_player].remove(square)
+        except:
+            print("Error: Square not in player pieces map")
+            print("Square: ", square)
+            print("Simulated map is as following: ")
+            print(self.board)
+            
+            # print the squares in player_pieces_map
+            # first white
+            print("White pieces:")
+            for sqr in self.player_pieces_map[Color.WHITE]:
+                print(sqr)
+            # then black
+            print("Black pieces:")
+            for sqr in self.player_pieces_map[Color.BLACK]:
+                print(sqr)
+            quit()
+        # Find the flipped pieces
+        flipped_pieces = last_move[1]
+        # Flip the pieces back
+        for flipped_piece in flipped_pieces:
+            # Get the square object of the flipped piece
+            square = self.board.get_square(flipped_piece[0], flipped_piece[1])
+            # Set the color to the current player
+            square.set_color(self.current_player)
+            # Update the player pieces map
+            self.player_pieces_map[new_player].remove(square)
+            self.player_pieces_map[self.current_player].append(square)
+        
+        # Update placed piece
+        self.placed_piece = last_move[2]
+        
+        return True
+    
     
     # Populates the initial valid moves by adding all the empty squares that are neighbors to the target color.
     # This reduces the number of minimum squares to check for valid moves, as we only need to check the neighbors 
@@ -155,11 +208,6 @@ class BoardState:
         for square in init_valid_moves:
             if self.is_valid_move(square, target_color):
                 final_valid_moves.add(square)
-        
-        # opponent_color = Color.WHITE if target_color == Color.BLACK else Color.BLACK
-        # print("CURRENTLY CAPTURABLE BY" , opponent_color, ":")
-        # for square in self.capturable_squares_cache[opponent_color]:
-        #     print(square)
         return final_valid_moves
 
     # Checks if the move is valid by checking if the square can flank in any direction
@@ -202,7 +250,6 @@ class BoardState:
             
             # If the color is the player's color, then it can flank in that direction
             # Cache the result
-            #print("HIT: ", current_square , " from ", start_square, " in ", direction, " with ", target_color)
             self.can_flank_in_direction_cache[(start_square, direction, target_color)] = True
             self.capturable_squares_cache[opponent_color].update(capturable_squares)
             return True
@@ -218,12 +265,11 @@ class BoardState:
             if current_square.color != target_color:
                 return
             current_square.set_color(self.current_player)
-            # Fix an edge-case bug where the stability of the square is not updated in time
-            # if self.is_safe_square(current_square):
-            #     current_square.stability = 1
-            # update the player_pieces_map
             self.player_pieces_map[target_color].remove(current_square)
             self.player_pieces_map[self.current_player].append(current_square)
+            
+            # Add the flipped piece to the move history
+            self.move_history[-1][1].append((current_square.row, current_square.col))
 
     # Steps:
     # Place the new piece on the board.
@@ -232,6 +278,14 @@ class BoardState:
     # Dequeue from the queue and update stability of neighbors.
     # Repeat steps 3-4 until the queue is empty or stability updates cease.
     def chain_update_stability(self, square, queue = []):
+        # Base case for if undowing reaches start of match, i.e., square is None
+        if square is None:
+            # Set all pieces to unstable
+            for sqr in self.board.get_all_squares():
+                if sqr.color != Color.EMPTY:
+                    sqr.stability = -1            
+            return
+        
         # Place the new piece on the board
         self.update_stability(square)
         
@@ -288,47 +342,30 @@ class BoardState:
         # For example, the complementary direction of NORTH is SOUTH
         # So if NORTH, WEST, NORTH_WEST and SOUTH_WEST are all safe squares or walls, then the square is safe
         
-        # First check: north or south. One of them must be a wall or a safe square, otherwise it's not safe
-        north_square = self.board.get_neighboring_square_direction(square, Directions.NORTH)
-        south_square = self.board.get_neighboring_square_direction(square, Directions.SOUTH)
-        if (not ((
-            north_square is None or (north_square.color == self.current_player and north_square.stability == 1)
-        ) or (
-            south_square is None or (south_square.color == self.current_player and south_square.stability == 1)
-        ))):
-            return False
+        complementary_directions = {
+            Directions.NORTH: Directions.SOUTH,
+            Directions.SOUTH: Directions.NORTH,
+            Directions.EAST: Directions.WEST,
+            Directions.WEST: Directions.EAST,
+            Directions.NORTH_EAST: Directions.SOUTH_WEST,
+            Directions.SOUTH_WEST: Directions.NORTH_EAST,
+            Directions.NORTH_WEST: Directions.SOUTH_EAST,
+            Directions.SOUTH_EAST: Directions.NORTH_WEST
+        }
         
-        # Then east or west, same concept as above
-        east_square = self.board.get_neighboring_square_direction(square, Directions.EAST)
-        west_square = self.board.get_neighboring_square_direction(square, Directions.WEST)
-        if (not ((
-            east_square is None or (east_square.color == self.current_player and east_square.stability == 1)
-        ) or (
-            west_square is None or (west_square.color == self.current_player and west_square.stability == 1)
-        ))):
-            return False
+        # Check each direction
+        for direction in Directions:
+            complementary = complementary_directions.get(direction)
+            square_in_direction = self.board.get_neighboring_square_direction(square, direction)
+            complementary_square = self.board.get_neighboring_square_direction(square, complementary)
+            
+            if not (
+                square_in_direction and (square_in_direction.color == self.current_player and square_in_direction.stability == 1)
+                or
+                complementary_square and (complementary_square.color == self.current_player and complementary_square.stability == 1)
+            ):
+                return False
         
-        # Then north-east or south-west, same concept as above
-        north_east_square = self.board.get_neighboring_square_direction(square, Directions.NORTH_EAST)
-        south_west_square = self.board.get_neighboring_square_direction(square, Directions.SOUTH_WEST)
-        if (not ((
-            north_east_square is None or (north_east_square.color == self.current_player and north_east_square.stability == 1)
-        ) or (
-            south_west_square is None or (south_west_square.color == self.current_player and south_west_square.stability == 1)
-        ))):
-            return False
-        
-        # Finally, north-west or south-east, same concept as above
-        north_west_square = self.board.get_neighboring_square_direction(square, Directions.NORTH_WEST)
-        south_east_square = self.board.get_neighboring_square_direction(square, Directions.SOUTH_EAST)
-        if (not ((
-            north_west_square is None or (north_west_square.color == self.current_player and north_west_square.stability == 1)
-        ) or (
-            south_east_square is None or (south_east_square.color == self.current_player and south_east_square.stability == 1)
-        ))):
-            return False
-        
-        # If all the above conditions are met, then the square is safe
         return True
     
     def is_unstable_square(self, square):
@@ -342,13 +379,11 @@ class BoardState:
         _ = self.get_valid_moves(opponent_color)
         if square in self.capturable_squares_cache[opponent_color]:
             return True
-
         
         return False
 
     def set_player(self, color):
         self.current_player = color
-        
         
     # Prints the valid moves for play in the console
     def print_get_valid_moves(self, player):
@@ -362,103 +397,3 @@ class BoardState:
         self.valid_moves_cache[Color.BLACK].clear()
         self.capturable_squares_cache[Color.WHITE].clear()
         self.capturable_squares_cache[Color.BLACK].clear()
-    
-    
-    def reconstruct_from_dict(self, game: dict):
-        """
-        Reconstructs the game state from a dict
-        should be as follows (example):
-        {
-            "current_player": "BLACK",
-            "skipped_turns": 0,
-            "squares": [
-                {
-                    "id": "00",
-                    "row": 0,
-                    "col": 0,
-                    "color": "EMPTY",
-                    "stability": 1
-                    "neighbors": [ # List of ids of neighbors
-                        "01", 
-                        "10", 
-                        "11"
-                    ]
-                    "neighbors_map": {
-                        "BLACK": [
-                        ],
-                        "WHITE": [
-                        ],
-                        "EMPTY": [
-                            "01",
-                            "10",
-                            "11"
-                        ]
-                    }
-                }
-            ]
-        }
-
-        Args:
-            game_str (dict): The representation of the game state.
-        """
-            
-        # Reset player pieces map
-        self.player_pieces_map = defaultdict(list)
-        self.player_pieces_map[Color.BLACK] = []
-        self.player_pieces_map[Color.WHITE] = []
-        # Set the current player
-        self.current_player = Color[game["current_player"]]
-        # Set the skipped turns
-        self.skipped_turns = game["skipped_turns"]
-        # Reconstruct the squares
-        for square in game["squares"]:
-            # Note color is now a string, we need to convert it to the Color enum
-            self.board.get_square(square["row"], square["col"]).color = Color[square["color"]]
-            self.board.get_square(square["row"], square["col"]).stability = square["stability"]
-                        
-            # by using the id's we can set the neighbors
-            self.board.get_square(square["row"], square["col"]).neighbors = [self.board.get_square(int(coord[0]), int(coord[1])) for coord in square["neighbor"]]                      
-            neighbor_map = {
-                Color.BLACK: [],
-                Color.WHITE: [],
-                Color.EMPTY: []
-            }
-
-            for color in Color:
-                neighbor_map[color] = [self.board.get_square(int(coord[0]), int(coord[1])) for coord in square["neighbor_map"][color]]
-
-            self.board.get_square(square["row"], square["col"]).neighbor_map = neighbor_map
-        
-        
-                    
-        # Add the squares to the player pieces map
-        for square in self.board.get_all_squares():
-            if square.color != Color.EMPTY:
-                self.player_pieces_map[square.color].append(square)
-        
-        self.clear_caches()
-        _ = self.get_valid_moves(self.current_player)
-                
-        
-    def create_dict(self):
-        """
-        Creates a dict representation of the game state.
-        Should be as described in the reconstruct_from_dict method.
-        """
-        game = {"current_player": self.current_player.name, "skipped_turns": self.skipped_turns, "squares": []}
-        for square in self.board.get_all_squares():
-            game["squares"].append({
-                "id": str(square.row) + str(square.col),
-                "row": square.row,
-                "col": square.col,
-                "color": square.color.name,
-                "stability": square.stability,
-                "neighbor": [(str(neighbor.row) + str(neighbor.col)) for neighbor in square.neighbors],
-                "neighbor_map": {
-                    Color.BLACK: [str(neighbor.row) + str(neighbor.col) for neighbor in square.neighbor_map[Color.BLACK]],
-                    Color.WHITE: [str(neighbor.row) + str(neighbor.col) for neighbor in square.neighbor_map[Color.WHITE]],
-                    Color.EMPTY: [str(neighbor.row) + str(neighbor.col) for neighbor in square.neighbor_map[Color.EMPTY]]
-                }
-            })
-            
-        return game

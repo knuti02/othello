@@ -5,18 +5,13 @@ import time
 class MinMaxAgent:
     def __init__(self, cache):
         self.cache = cache
-        self.deepcopy_time = 0
+        self.test_time = 0
         
     def get_best_move(self, gamestate, heuristic_function, depth = 5, alpha=-float('inf'), beta=float('inf'), is_maximizing=True, player=None):            
         # Base case
         if depth == 0 or gamestate.is_game_over():
             value = heuristic_function(gamestate, player)
             return value, None
-        
-        start = time.time()
-        game_dict = gamestate.create_dict()
-        end = time.time()
-        self.deepcopy_time += end - start
         
         player = gamestate.current_player
 
@@ -27,34 +22,32 @@ class MinMaxAgent:
             depth_searched, value, best_move = self.cache[board]
             if depth_searched >= depth:
                 return value, best_move
-            
+        
         # Detect symmetry
         is_symmetric, board_str = self.detect_symmetry(gamestate)
         if is_symmetric:
             depth_searched, value, best_move = self.cache[board_str]
             if depth_searched >= depth:
                 return value, best_move
-            
+        
         max_value = float('-inf')
         min_value = float('inf')
         best_move = None
 
         valid_moves = gamestate.get_valid_moves(player).copy()
 
+
         for move in valid_moves:
-            gamestate_copy = gamestate
-            
             if move == "skip":
-                gamestate_copy.skip_turn()
+                gamestate.skip_turn()
             else:
-                gamestate_copy.place_piece(move.row, move.col)
-            gamestate_copy.next_turn()
-            value, _ = self.get_best_move(gamestate_copy, heuristic_function, depth - 1, alpha, beta, not is_maximizing, player)
+                gamestate.place_piece(move.row, move.col)
+            gamestate.next_turn()
             
-            start = time.time()
-            gamestate_copy.reconstruct_from_dict(game_dict)
-            end = time.time()
-            self.deepcopy_time += end - start
+            value, _ = self.get_best_move(gamestate, heuristic_function, depth - 1, alpha, beta, not is_maximizing, player)
+            
+            gamestate.undo_move()
+            gamestate.next_turn()
 
             if is_maximizing:
                 if value > max_value:
@@ -79,7 +72,6 @@ class MinMaxAgent:
         
     def clear_cache(self):
         self.cache.clear()
-        
         
     def detect_symmetry(self, gamestate):
         """
