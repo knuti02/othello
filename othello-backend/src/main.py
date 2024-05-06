@@ -96,7 +96,7 @@ def play_AI_vs_AI(game):
         game.print_get_valid_moves(game.current_player)
         
         start = time.time()
-        _, move = agent.get_best_move(game, combined_heuristics, 7)
+        _, move = agent.get_best_move(game, combined_heuristics, 5)
         end = time.time()
         print("AI move: ", move)
         print("Move took: ", end - start, " seconds")

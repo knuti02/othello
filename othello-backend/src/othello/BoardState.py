@@ -154,29 +154,17 @@ class BoardState:
         last_move = self.move_history.pop()
         # Get the square of the last move
         square = self.board.get_square(last_move[0][0], last_move[0][1])
+        
+        color = square.color.name
+        
         # Set the square color to empty
         square.set_color(Color.EMPTY)
         # Update stability to 0, unless it's a corner in which case it's 1
         square.stability = 1 if square in self.board.corners else 0
-        # Update the player pieces map
-        try:
-            self.player_pieces_map[new_player].remove(square)
-        except:
-            print("Error: Square not in player pieces map")
-            print("Square: ", square)
-            print("Simulated map is as following: ")
-            print(self.board)
-            
-            # print the squares in player_pieces_map
-            # first white
-            print("White pieces:")
-            for sqr in self.player_pieces_map[Color.WHITE]:
-                print(sqr)
-            # then black
-            print("Black pieces:")
-            for sqr in self.player_pieces_map[Color.BLACK]:
-                print(sqr)
-            quit()
+        # Find which player the square belonged to
+        player = self.current_player if color == self.current_player.name else new_player
+        # Remove the square from the player pieces map
+        self.player_pieces_map[player].remove(square)
         # Find the flipped pieces
         flipped_pieces = last_move[1]
         # Flip the pieces back
