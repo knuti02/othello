@@ -1,4 +1,5 @@
-from Board import Board
+from .Board import Board
+import time
 
 class GameState:
     """
@@ -7,11 +8,10 @@ class GameState:
     It contains the board as a class and the current player.
     """
     
-    def __init__(self):
+    def __init__(self, include_stability=True):
         self.board = Board()
         self.current_player = 'black'
         self.target_player = 'white'
-        self.pass_count = 0
         self.game_over = False
         self.winner = None
         
@@ -20,7 +20,6 @@ class GameState:
         self.board.place_piece(3, 4, 'black')
         self.board.place_piece(4, 3, 'black')
     
-        # For the directions
         self.directions = {
             "north": -8,
             "south": 8,
@@ -32,25 +31,29 @@ class GameState:
             "south_east": 9
         }
         
-        self.opposite_directions = {
-            'north': 'south',
-            'south': 'north',
-            'east': 'west',
-            'west': 'east',
-            'north_east': 'south_west',
-            'north_west': 'south_east',
-            'south_east': 'north_west',
-            'south_west': 'north_east'
+        self.wraparound_masks = {
+            'north': 0b00000000_11111111_11111111_11111111_11111111_11111111_11111111_11111111,
+            'south': 0b11111111_11111111_11111111_11111111_11111111_11111111_11111111_00000000,
+            'east': 0b11111110_11111110_11111110_11111110_11111110_11111110_11111110_11111110,
+            'west': 0b01111111_01111111_01111111_01111111_01111111_01111111_01111111_01111111,
+            'north_east': 0b11111111_11111111_11111111_11111111_11111111_11111111_11111110_11111110,
+            'north_west': 0b11111111_11111111_11111111_11111111_11111111_11111111_01111111_01111111,
+            'south_east': 0b11111110_11111110_11111110_11111110_11111110_11111110_11111111_11111111,
+            'south_west': 0b01111111_01111111_01111111_01111111_01111111_01111111_11111111_11111111
         }
         
-        self.capturable_squares_bitboard_cache = {'black': 0, 'white': 0}
         self.valid_moves_bitboard_cache = {'black': 0, 'white': 0}
+        self.player_can_capture_cache = {'black': 0, 'white': 0}
+        
+        self.history = []
+        self.include_stability = include_stability
     
     
     def get_valid_moves(self, player) -> int:
         """
         Given a player, returns the valid moves for that player in the current state.
         The valid moves are returned as a bitboard where 1 represents a valid move.
+        Based on: https://core.ac.uk/download/pdf/33500946.pdf
         
         :param player: The player whose valid moves to return as a string.
         
@@ -59,13 +62,37 @@ class GameState:
         # Check if we have the valid moves in the cache, in which case we return it to save time
         if self.valid_moves_bitboard_cache[player] != 0:
             return self.valid_moves_bitboard_cache[player]
-        
         target_player = 'black' if player == 'white' else 'white'
-        # First get the initial valid moves
-        init_valid_moves = self._get_init_valid_moves(target_player)
-        # Then reduce to valid moves
-        valid_moves = self._get_final_valid_moves(init_valid_moves, player, target_player)
+        
+        player_board = self.board.get_board(player)
+        target_board = self.board.get_board(target_player)
+        empty_board = self.board.get_board('empty')
+        
+        # Go through every direction
+        valid_moves = 0
+        capturable_pieces = 0 # Pieces that can be captured used for stability
+        
+        for direction, shift in self.directions.items():
+            potentially_capturable = 0
+            mask = self.wraparound_masks[direction]
+            can_place_in_direction = False
+            candidate_moves = self._shift_bitboard_direction(player_board, shift) & target_board & mask
+            
+            while candidate_moves > 0:
+                valid_placements = self._shift_bitboard_direction(candidate_moves, shift) & empty_board & mask
+                if valid_placements > 0: # We can place a piece in this direction, which is important for stability
+                    can_place_in_direction = True
+                valid_moves |= valid_placements
+                potentially_capturable |= candidate_moves
+                candidate_moves = self._shift_bitboard_direction(candidate_moves, shift) & target_board & mask
+                
+            if can_place_in_direction: # If we can place a piece in this direction, we can capture pieces
+                capturable_pieces |= potentially_capturable # Update the capturable pieces
+        # Add to the cache
+        self.valid_moves_bitboard_cache[player] = valid_moves
+        self.player_can_capture_cache[player] = capturable_pieces
         return valid_moves
+        
     
     def make_move(self, row, col) -> bool:
         """
@@ -74,239 +101,266 @@ class GameState:
         
         :param row: The row to place the piece.
         :param col: The col to place the piece.
+        
+        :return: True if the move was successful, False otherwise.
         """
-        # Translate col to number
         col = ord(col) - 65
-        # Translate the row, col to a bitboard
         move_bitboard = self._translate_rowcol_to_bitboard(row, col)
-        # Get valid moves for the current player
-        valid_moves_mask = self.get_valid_moves(self.current_player)
-        # Check if the move is valid
-        if move_bitboard & valid_moves_mask == 0:
-            print("Invalid move")
+        if move_bitboard & self.get_valid_moves(self.current_player) == 0:
+            print("Illegal move")
+            print(f"{self.current_player} attempted move: {row, col}")
+            print("Valid moves:")
+            print(self._bitboard_to_rowcol(self.get_valid_moves(self.current_player)))
+            print(self.board)
             return False
-        # Move is valid, place the piece
+        
+        # Move was successful
+        self.pass_count = 0
+        self.history.append(self._generate_current_history())
+        
         self.board.place_piece(row, col, self.current_player)
-        # Flip the pieces
-        self._flip_pieces(move_bitboard, self.current_player, self.target_player)
+        player_bitboard = self.board.get_board(self.current_player)
+        target_bitboard = self.board.get_board(self.target_player)   
+        
+        for direction, shift in self.directions.items():
+            mask = self.wraparound_masks[direction]
+            init_move = self._shift_bitboard_direction(move_bitboard, shift) & target_bitboard & mask
+            if init_move == 0:
+                continue
+            captured = init_move
+            for _ in range(5):
+                old_captured = captured
+                captured |= self._shift_bitboard_direction(captured, shift) & target_bitboard & mask
+                if old_captured == captured:
+                    break
+            if self._shift_bitboard_direction(captured, shift) & player_bitboard & mask > 0:
+                self.board.flip_piece(captured, self.target_player, self.current_player)
+        
+        self.next_turn()
         return True
-        
-    def next_turn(self) -> None:
-        # Clear the caches
-        self.capturable_squares_bitboard_cache = {'black': 0, 'white': 0}
-        self.valid_moves_bitboard_cache = {'black': 0, 'white': 0}
-        
-        # Switch the players
-        self.current_player = 'black' if self.current_player == 'white' else 'white'
-        self.target_player = 'black' if self.current_player == 'white' else 'white'
     
-    def _get_init_valid_moves(self, target_player) -> int:
-        """
-        Look at only empty squares that are neighbors of the opponent player's pieces.
-        This reduces the amount of squares to look at from all empty squares to 
-        only the empty squares adjacent to a the neighbors of the opponent player's pieces.
-        
-        :param target_player: The player whose empty neighbors we need to find.
-        
-        :return: The valid moves for the player as a set of tuples.
-        """
-        empty_neighbors_map = self.board.get_neighbors_of_player(target_player, 'empty')
-        return empty_neighbors_map
-    
-    def _get_final_valid_moves(self, init_valid_moves, player, target_player) -> int:
-        """
-        Given the initial valid moves, reduce it to the final valid moves.
-        This is done by looking at the directions of the opponent's pieces and checking if there are any pieces
-        that can be flipped in that direction.
-        
-        :param init_valid_moves: The initial valid moves as a set of tuples.
-        :param player: The player whose valid moves to return as a string.
-        
-        :return: The final valid moves for the player as a set of tuples.
-        """
-        valid_moves = 0
-        for direction in self.directions:
-            valid_moves |= self._traverse_direction(direction, init_valid_moves, player, target_player)
-            
-        return valid_moves
-        
-    def _traverse_direction(self, direction, bitboard, player, target_player) -> int:
-        """
-        Traverse in a given direction from the origin bitboard and check if we can flip any pieces.
-        Return the positions of the valid moves as a bitboard.
-        
-        :param direction: The direction to traverse in.
-        :param bitboard: The origin bitboard.
-        :param player: The player whose pieces to check.
-        :param target_player: The player whose pieces to flip.
-        
-        :return: The positions of the valid moves as a bitboard.
-        """
-        # Where we can place the pieces
-        allowed_positions = 0
-        # Which pieces can be flipped
-        flippable_positions = 0
-        
-        # Get the direction shift
-        shift = self.directions[direction]
-        
-        # In a given direction from the origin bitboard, the immediate neighbor must be the target player
-        bitboard_copy = self._shift_bitboard_direction(bitboard, shift)
-        bitboard_copy &= self.board.get_board(target_player)
-        if bitboard_copy == 0: # If there are no target player pieces in the direction, we can't traverse
-            return 0
-        
-        # Find opposite direction and appropriate shift
-        opposite_direction = self.opposite_directions[direction]
-        opposite_shift = self.directions[opposite_direction]
-        
-        # After this, the next square can continue to be the target player or the current player
-        # However, if it's an empty square (or the wall), we can't traverse in this direction
-        iteration = 1
-        while bitboard_copy > 0 and (bitboard_copy & self.board.get_board('empty')) == 0:
-            bitboard_copy = self._shift_bitboard_direction(bitboard_copy, shift)
-            # See if we hit target player's piece, in which case we can flip the pieces and 
-            # add the position to the allowed positions
-            if (bitboard_copy & self.board.get_board(player)) != 0:
-                # Find the position
-                position = bitboard_copy & self.board.get_board(player)
-                # Shift it back to the original position
-                for _ in range(iteration):
-                    position = self._shift_bitboard_direction(position, opposite_shift)
-                    # Add the position to the flippable positions
-                    flippable_positions |= position
-                # Add onle last shift
-                position = self._shift_bitboard_direction(position, opposite_shift)
-                # Add the position to the allowed positions 
-                allowed_positions |= position
-
-            # See if we hit another target player piece
-            # We & with the target player board to check for non-zero results, 
-            # and update the bitboard if we hit another target player piece
-            if (bitboard_copy & self.board.get_board(target_player)) != 0:
-                bitboard_copy &= self.board.get_board(target_player)
-            # Update the iteration
-            iteration += 1
-        
-        # Add to the caches
-        self.capturable_squares_bitboard_cache[player] |= flippable_positions
-        self.valid_moves_bitboard_cache[player] |= allowed_positions
-        return allowed_positions
-    
-    def _flip_pieces(self, move_bitboard, player, target) -> None:
-        """
-        Given a valid move bitboard, find the pieces to flip and flip them.
-        
-        :param move_bitboard: The move bitboard.
-        :param player: The player who made the move.
-        """
-        
-        # First find which directions to traverse
-        # Can reduce this by only checking directions with immediate enemy neighbors
-        directions = []
-        
-        # Extract the neighbors
-        neighbors_bitboard = self.board.get_neighbors_of_player(player, target, move_bitboard)
-        neighbors_bitboard_list = []
-        # Expand them to individual bitboards
-        while neighbors_bitboard != 0:
-            rightmost_bit = neighbors_bitboard & -neighbors_bitboard
-            neighbors_bitboard_list.append(rightmost_bit)
-            neighbors_bitboard &= ~rightmost_bit
-        # Find the directions
-        for neighbor in neighbors_bitboard_list:
-            directions.append(self.board.get_direction_of_neighbor(move_bitboard, neighbor))
-        # Traverse in the directions and flip the pieces
-        for direction in directions:
-            self._flip_pieces_direction(move_bitboard, direction, player, target)
-            
-    def _flip_pieces_direction(self, move_bitboard, direction, player, target) -> None:
-        """
-        Given a move bitboard, traverse in a direction and flip the pieces.
-        
-        :param move_bitboard: The move bitboard.
-        :param direction: The direction to traverse.
-        :param player: The player who made the move.
-        """
-        # Get the direction shift
-        shift = self.directions[direction]
-        
-        # In a given direction from the origin bitboard, the immediate neighbor must be the target player
-        bitboard_copy = self._shift_bitboard_direction(move_bitboard, shift)
-        bitboard_copy &= self.board.get_board(target)
-        if bitboard_copy == 0: # If there are no target player pieces in the direction, we can't traverse
+    def skip_turn(self) -> None:
+        self.history.append(self._generate_current_history())
+        self.next_turn()
+                
+    def undo_move(self) -> None:
+        if len(self.history) == 0:
+            print("At the start of the game, can't undo")
             return
         
-        iteration = 1
-        while bitboard_copy > 0 and (bitboard_copy & self.board.get_board('empty')) == 0:
-            bitboard_copy = self._shift_bitboard_direction(bitboard_copy, shift)
-            # See if we hit target player's piece, in which case we can flip the pieces
-            if (bitboard_copy & self.board.get_board(player)) != 0:
-                # Find the position
-                position = bitboard_copy & self.board.get_board(player)
-                # Shift it back to the original position
-                for _ in range(iteration):
-                    position = self._shift_bitboard_direction(position, -shift)
-                    # Flip the piece from target to player
-                    self.board.flip_piece(position, from_player=target, to_player=player)
+        if self.game_over:
+            self.game_over = False
+            self.winner = None
+        
+        last_state = self.history.pop()
+        self.board.board['black'] = last_state['board'][0]
+        self.board.board['white'] = last_state['board'][1]
+        self.valid_moves_bitboard_cache['black'] = last_state['valid_moves'][0]
+        self.valid_moves_bitboard_cache['white'] = last_state['valid_moves'][1]
+        self.player_can_capture_cache['black'] = last_state['player_can_capture'][0]
+        self.player_can_capture_cache['white'] = last_state['player_can_capture'][1]
+        self.board.safe_board['black'] = last_state['safe_board'][0]
+        self.board.safe_board['white'] = last_state['safe_board'][1]
+        self.board.unstable_board['black'] = last_state['unstable_board'][0]
+        self.board.unstable_board['white'] = last_state['unstable_board'][1]
+        self.next_turn()
+        
+    def next_turn(self) -> None:
+        self.capturable_squares_bitboard_cache = {'black': 0, 'white': 0}
+        self.valid_moves_bitboard_cache = {'black': 0, 'white': 0}
+        self.current_player = 'black' if self.current_player == 'white' else 'white'
+        self.target_player = 'black' if self.current_player == 'white' else 'white'
+        if self.include_stability:
+            self._update_stability()   
             
-            # See if we hit another target player piece
-            # We & with the target player board to check for non-zero results, 
-            # and update the bitboard if we hit another target player piece
-            if (bitboard_copy & self.board.get_board(target)) != 0:
-                bitboard_copy &= self.board.get_board(target)
-            # Update the iteration
-            iteration += 1
+        # Check if game is over
+        if self._is_game_over():
+            self._set_game_over()
+            return 
+    
+    def _generate_current_history(self) -> dict:
+        current_history = {}
+        current_history['board'] = (self.board.get_board('black'), self.board.get_board('white'))
+        current_history['valid_moves'] = (self.valid_moves_bitboard_cache['black'], self.valid_moves_bitboard_cache['white'])
+        current_history['player_can_capture'] = (self.player_can_capture_cache['black'], self.player_can_capture_cache['white'])
+        current_history['safe_board'] = (self.board.safe_board['black'], self.board.safe_board['white'])
+        current_history['unstable_board'] = (self.board.unstable_board['black'], self.board.unstable_board['white'])
+        
+        return current_history
+    
+    def _is_game_over(self) -> bool:
+        player_is_empty = ((bin(self.board.get_board('black')).count('1') == 0) or 
+                           (bin(self.board.get_board('white')).count('1') == 0))
+        is_empty_board_zero = len(self._bitboard_to_rowcol(self.board.get_board('empty'))) == 0
+        is_game_over = is_empty_board_zero or player_is_empty
+        return is_game_over
+    
+    def _set_game_over(self) -> None:
+        black_score = bin(self.board.get_board('black')).count('1')
+        white_score = bin(self.board.get_board('white')).count('1')
+        if black_score > white_score:
+            self.winner = 'black'
+        elif white_score > black_score:
+            self.winner = 'white'
+        else:
+            self.winner = 'draw'
+        self.game_over = True
+    
+    def _update_stability(self) -> None:
+        """
+        Stability is defined in three categories:
+        - Safe: A piece that can't ever be flipped in an ancestor state.
+        - Unstable: A piece that, in this state, can be flipped.
+        - Stable: A piece that is not safe or unstable. In other words, it can be flipped in the future.
+        
+        The Board class has two bitboards that represent the safe and unstable pieces.
+        Stable can be derived from these two bitboards.
+        """
+        self._update_safe('black')
+        self._update_safe('white')
+        
+        self._update_unstable('black', 'white')
+        self._update_unstable('white', 'black')
 
+    def _update_safe(self, player) -> None:
+        """
+        Is a potentially expensive operation, at least in the current implementation.
+        However, it is required for the stability calculation.
+        The algorithm is relatively complex, but it is based on the following:
+         - A corner piece is always safe.
+         - Edges "built" from the corners are safe.
+         - All other pieces are safe if their immediate neighbor in all 4 opposing directions are safe.
+        """
+        player_board = self.board.get_board(player)
+        player_corners = player_board & self.board.corners
+        if player_corners == 0:
+            return
+        
+        safe_board = player_corners
+        
+        # Check edges, for each cardinal direction
+        for direction in ['north', 'south', 'west', 'east']:
+            candidates = player_corners
+            shift = self.directions[direction]
+            for i in range(6):
+                edge = self._shift_bitboard_direction(candidates, shift) & player_board
+                if edge == 0:
+                    if i > 0:
+                        print(f"Found safe edge(s) in direction {direction} for {player} in {i} iterations")
+                    break
+                #print(f"Edge getting added: {bin(edge)} in direction {direction} for {player}")
+                candidates |= edge
+            safe_board |= candidates
+        
+        # See if any of the edges were added as safe, if not we can early return
+        if safe_board == player_corners:
+            return
+        
+        # Now find the rest
+        iter = 0
+        while True:
+            old_safe_board = safe_board
+            safe_board |= (
+                (self._shift_bitboard_direction(safe_board, self.directions['north']) | 
+                 self._shift_bitboard_direction(safe_board, self.directions['south'])) &
+                (self._shift_bitboard_direction(safe_board, self.directions['west']) |
+                 self._shift_bitboard_direction(safe_board, self.directions['east'])) &
+                (self._shift_bitboard_direction(safe_board, self.directions['north_west']) |
+                 self._shift_bitboard_direction(safe_board, self.directions['south_east'])) &
+                (self._shift_bitboard_direction(safe_board, self.directions['north_east']) |
+                 self._shift_bitboard_direction(safe_board, self.directions['south_west'])) &
+                player_board
+            )
+            
+            if old_safe_board == safe_board:
+                #print(f"Found safe board for {player} in {iter} iterations")
+                break
+            iter += 1
+            
+        self.board.safe_board[player] = safe_board
+        
+    def _update_unstable(self, player, opponent) -> None:
+        """
+        An unstable piece is a piece that can be flipped in the current state.
+        To do this, we need to find all pieces that can be captured in the current state.
+        This is done in the get_valid_moves method, and we can use the cached value.
+        The reason we do it this way is to avoid recalculating the same thing multiple times.
+        Though readability is sacrificed, considering this is a bitboard implementation of Othello,
+        readability is already massacred.
+        """
+        self.get_valid_moves(player) # This will update the cache and mark all opponent pieces that can be captured
+        self.board.unstable_board[opponent] = self.player_can_capture_cache[player] # The opponent's pieces that can be captured are unstable
+        
     def _shift_bitboard_direction(self, bitboard, shift) -> None:
         return (bitboard << shift) if shift > 0 else (bitboard >> abs(shift))
     
     def _translate_rowcol_to_bitboard(self, row, col) -> int:
-        """
-        Given a row and col, convert it to a bitboard.
-        Row should be numbered from 0 to 7.
-        Col should be numbered from 0 to 7.
-        
-        :param row: The row to convert.
-        :param col: The col to convert.
-        
-        :return: The bitboard representation of the row, col.
-        """
         return 1 << (row * 8 + col)
     
     def _bitboard_to_rowcol(self, bitboard) -> list:
-        """
-        Given a bitboard, convert it to a list of row, col tuples.
-        Row should be numbered from 0 to 7 from top to bottom.
-        Col should be labeled from A to H from left to right.
-        Helper function for debugging.
-        
-        :param bitboard: The bitboard to convert.
-        
-        :return: A list of row, col tuples.
-        """
-        rowcol = []
-        for i in range(64):
-            if bitboard & (1 << i):
-                row = i // 8
-                col = i % 8
-                rowcol.append(str(row) + chr(col + 65))
+        rowcol = [(i // 8, chr((i % 8) + 65)) for i in range(64) if bitboard & (1 << i)]
         return rowcol
-                    
+            
 
-if __name__ == "__main__":
-    gamestate = GameState()
-    print(gamestate.board)
-    while True:
-        print(f"Current player: {gamestate.current_player}")
-        print("Valid moves: ")
-        print(gamestate._bitboard_to_rowcol(gamestate.get_valid_moves(gamestate.current_player)))
-        move = input("Enter rowcol (number+letter in one): ")
-        row = int(move[0])
-        col = move[1].upper()
+# if __name__ == "__main__":
+#     import time
+#     def benchmark(game_state, iterations=100_000):
+#         start = time.time()   
+#         for _ in range(iterations):
+#             game_state.make_move(3, 'C')
+#             game_state.make_move(2, 'C')
+#             game_state.make_move(2, 'D')
+#             game_state.undo_move()
+#             game_state.make_move(1, 'C')
+#             game_state.undo_move()
+#             game_state.undo_move()
+#             game_state.undo_move()
+            
+#         end = time.time()
+#         return end - start
+
+#     for i in range(5):
+#         print(f"Run {i + 1}")
+#         # Initialize game states
+#         print("Running benchmarks...")
+#         stability_game_state = GameState(include_stability=True)
+#         standard_game_state = GameState(include_stability=False)
+
+#         # Run benchmarks
+#         print("Stability game state")
+#         original_time = benchmark(stability_game_state)
+#         print(f"Seconds: {original_time:.4f}")
+#         print("Standard game state")
+#         new_time = benchmark(standard_game_state)
+#         print(f"Seconds: {new_time:.4f}")
+
+# if __name__ == "__main__":
+#     gamestate = GameState()
+#     print(gamestate.board)
+#     while True:
+#         print(f"Current player: {gamestate.current_player}")
+#         print("Valid moves: ")
+#         print(gamestate._bitboard_to_rowcol(gamestate.get_valid_moves(gamestate.current_player)))
+#         if gamestate.get_valid_moves(gamestate.current_player) == 0:
+#             print("No valid moves, skipping turn")
+#             gamestate.skip_turn()
+#             continue
+#         move = input("Enter rowcol (number+letter in one): ")
+#         if move == 'undo':
+#             gamestate.undo_move()
+#             print(gamestate.board)
+#             continue
+#         try:
+#             row = int(move[0])
+#             col = move[1].upper()
+#         except:
+#             print("Invalid input")
+#             continue
         
-        success = gamestate.make_move(row, col)
-        if not success:
-            continue
-        print(gamestate.board)
-        gamestate.next_turn()
+#         print(f"Making move {row}, {col}")
+#         gamestate.make_move(row, col)
+#         print(gamestate.board)
+#         print("Safe board black")
+#         print(bin(gamestate.board.safe_board['black']))
+#         print("Safe board white")
+#         print(bin(gamestate.board.safe_board['white']))
