@@ -8,8 +8,9 @@ def corners_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = Tr
     def corners_value(player) -> int:
         player_board = gamestate.board.get_board(player)
         corners_value = bin(player_board & corners).count('1')
+        potential_corners = bin(gamestate.get_valid_moves(player) & corners).count('1') * 0.33
 
-        return corners_value
+        return corners_value + potential_corners
     
     weight = corners_heuristics_weight_function(placed_pieces) if dynamic_weight else 30
     
@@ -21,6 +22,6 @@ def corners_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = Tr
     if corners_denominator == 0:
         return 0
     
-    combined_corners_value = weight * ((current_corners_value - opponent_corners_value) / (corners_denominator)) 
+    combined_corners_value = weight * ((current_corners_value - opponent_corners_value) / (corners_denominator))
     
     return combined_corners_value

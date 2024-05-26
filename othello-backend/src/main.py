@@ -20,12 +20,16 @@ def input_move(game):
             game.skip_turn()
             break
         
-        row=int(move[0])
-        col=move[1].upper()
-        
-        valid_move = game.make_move(row, col)
-        if valid_move:
-            return
+        try:
+            row=int(move[0])
+            col=move[1].upper()
+            
+            valid_move = game.make_move(row, col)
+            if valid_move:
+                return
+        except:
+            print("Invalid move. Try again.")
+            continue
 
 def play_against_AI(game, player):
     agent = MinMaxAgent(cache={})
@@ -33,9 +37,9 @@ def play_against_AI(game, player):
     def print_heuristics():
         print("\nCurrent evaluation: ")
         print("------------------------------------------------------------------------------")
-        print("Black's current evaluation:", combined_eval(game, 'black', 'white', print_heuristics = True))
+        print("Black's current evaluation:", combined_eval(game, 'black', 'white', print_heuristics = True, beta_features = True))
         print("------------------------------------------------------------------------------")
-        print("White's current evaluation:", combined_eval(game, 'white', 'black', print_heuristics = True))
+        print("White's current evaluation:", combined_eval(game, 'white', 'black', print_heuristics = True, beta_features = True))
         print("------------------------------------------------------------------------------\n")
     
     print(game.board)
@@ -47,13 +51,9 @@ def play_against_AI(game, player):
             input_move(game)
             print(game.board)
             print_heuristics()
-            print("Unstable black")
-            print(game._bitboard_to_rowcol(game.board.unstable_board['black']))
-            print("Unstable white")
-            print(game._bitboard_to_rowcol(game.board.unstable_board['white']))
             continue
         
-        _, move = agent.get_best_move(game, combined_eval, 5)
+        _, move = agent.get_best_move(game, combined_eval, 5, beta_features=True)
         agent.clear_cache()
                 
         print("AI move: ", move)
@@ -63,10 +63,6 @@ def play_against_AI(game, player):
             game.make_move(move[0], move[1])
         print(game.board)
         print_heuristics()
-        print("Unstable black")
-        print(game._bitboard_to_rowcol(game.board.unstable_board['black']))
-        print("Unstable white")
-        print(game._bitboard_to_rowcol(game.board.unstable_board['white']))
         
 # def play_against_player(game):
 #     print(game.board)
@@ -93,16 +89,17 @@ def play_against_AI(game, player):
 #         print(game.board)
         
 
-def play_AI_vs_AI(game):
+def play_AI_vs_AI(game, beta_features):
     print(game.board)
     agent = MinMaxAgent(cache={})  
+    beta_features = beta_features
     
     while not game.game_over:
         print("Current player:", game.current_player)
         print("Current player's possible moves: ")
         print(game._bitboard_to_rowcol(game.get_valid_moves(game.current_player)))
         start = time.time()
-        _, move = agent.get_best_move(game, combined_eval, 6)
+        _, move = agent.get_best_move(game, combined_eval, 5, beta_features=beta_features)
         agent.clear_cache()
         print("AI move: ", move)
         if move == "skip":
@@ -115,21 +112,25 @@ def play_AI_vs_AI(game):
         print("------------------------------------------------------------------------------")
         print("Black's current evaluation:", combined_eval(game, 'black', 'white', print_heuristics = True))
         print("------------------------------------------------------------------------------")
-        print("White's current evaluation:", combined_eval(game, 'white', 'black', print_heuristics = True))
+        print("White's current evaluation:", combined_eval(game, 'white', 'black', print_heuristics = True, beta_features = True))
         print("------------------------------------------------------------------------------\n")
         print(game.board)
+        beta_features = not beta_features
 
     print("Game over!")
     print("Winner: ", game.winner)
+    return game.winner, not beta_features
 
 if __name__ == "__main__":
-    game = GameState()
+    game1 = GameState()
+    game2 = GameState()
+    winner1, using_beta_features1 = play_AI_vs_AI(game1, False)
+    winner2, using_beta_features2 = play_AI_vs_AI(game2, True)
     
-    # player = input("Do you want to play as black or white? (b/w): ")
-    # player = 'black' if player == 'b' else 'white'
-    # play_against_AI(game, player)
+    print("Game 1 winner: ", winner1, ". Used beta features?: ", using_beta_features1)
+    print("Game 2 winner: ", winner2, ". Used beta features?: ", using_beta_features2)
     
-    play_AI_vs_AI(game)
+    # play_against_AI(game, 'black')
     
     # play_againt_AI = input("Do you want to play against the AI? (y/n): ")
     # if play_againt_AI == "ai_vs_ai":
