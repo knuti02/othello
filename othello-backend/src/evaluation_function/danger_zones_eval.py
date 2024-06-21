@@ -23,12 +23,3 @@ def danger_zones_eval(gamestate, player, opponent):
     
     player_danger_zones_value = evaluate_danger_zones(player, opponent)
     return player_danger_zones_value
-    # opponent_danger_zones_value = evaluate_danger_zones(opponent, player)
-    
-    # danger_zones_denominator = abs(player_danger_zones_value) + abs(opponent_danger_zones_value)
-    # # prevent division by zero
-    # if danger_zones_denominator == 0:
-    #     return 0
-    
-    # combined_danger_zones_value = 10 * ((player_danger_zones_value - opponent_danger_zones_value) / (danger_zones_denominator))
-    # return combined_danger_zones_value

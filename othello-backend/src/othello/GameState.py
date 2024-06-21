@@ -8,17 +8,25 @@ class GameState:
     It contains the board as a class and the current player.
     """
     
-    def __init__(self, include_stability=True):
+    def __init__(self, include_stability=True, gamestate=None):
         self.board = Board()
-        self.current_player = 'black'
-        self.target_player = 'white'
         self.game_over = False
         self.winner = None
-        
-        self.board.place_piece(3, 3, 'white')
-        self.board.place_piece(4, 4, 'white')
-        self.board.place_piece(3, 4, 'black')
-        self.board.place_piece(4, 3, 'black')
+        # In case we want to initialize the gamestate with a specific state
+        if gamestate is not None:
+            print("Initializing gamestate with custom gamestate")
+            self.board.board['black'] = gamestate[0]
+            self.board.board['white'] = gamestate[1]
+            self.current_player = gamestate[2]
+            self.target_player = 'black' if self.current_player == 'white' else 'white'      
+
+        else:
+            self.current_player = 'black'
+            self.target_player = 'white'
+            self.board.place_piece(3, 3, 'white')
+            self.board.place_piece(4, 4, 'white')
+            self.board.place_piece(3, 4, 'black')
+            self.board.place_piece(4, 3, 'black')
     
         self.directions = {
             "north": -8,
@@ -47,6 +55,8 @@ class GameState:
         
         self.history = []
         self.include_stability = include_stability
+        if self.include_stability and gamestate is not None:
+            self._update_stability()
     
     
     def get_valid_moves(self, player) -> int:
@@ -189,7 +199,8 @@ class GameState:
         player_is_empty = ((bin(self.board.get_board('black')).count('1') == 0) or 
                            (bin(self.board.get_board('white')).count('1') == 0))
         is_empty_board_zero = len(self._bitboard_to_rowcol(self.board.get_board('empty'))) == 0
-        is_game_over = is_empty_board_zero or player_is_empty
+        is_both_players_depleted_moves = (self.get_valid_moves('black') == 0 and self.get_valid_moves('white') == 0)
+        is_game_over = is_empty_board_zero or player_is_empty or is_both_players_depleted_moves
         return is_game_over
     
     def _set_game_over(self) -> None:
