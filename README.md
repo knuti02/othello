@@ -16,3 +16,8 @@ After considering how to implement the AI opponent, I came to the conclusion tha
 This poses a challenge; there are few public libraries available for Java regarding RL. As such I need to write the AI model in Python. 
 In order to streamline the process, it would be more efficent to re-write the current game logic in the backend in Python instead of Java. 
 As such, I have decided to move over to Python.
+
+# Update 22.06.2024
+The API for the backend will use Flask
+Docker is under reconsideration
+PostgreSQL is under reconsideration
