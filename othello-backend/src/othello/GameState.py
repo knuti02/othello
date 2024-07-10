@@ -12,13 +12,16 @@ class GameState:
         self.board = Board()
         self.game_over = False
         self.winner = None
+        self.current_turn = 0
         # In case we want to initialize the gamestate with a specific state
         if gamestate is not None:
             print("Initializing gamestate with custom gamestate")
             self.board.board['black'] = gamestate[0]
             self.board.board['white'] = gamestate[1]
             self.current_player = gamestate[2]
-            self.target_player = 'black' if self.current_player == 'white' else 'white'      
+            self.target_player = 'black' if self.current_player == 'white' else 'white'   
+            self.game_over = gamestate[3]   
+            self.current_turn = gamestate[4]
 
         else:
             self.current_player = 'black'
@@ -109,8 +112,8 @@ class GameState:
         Given a row and col, make a move for the current player.
         The move is assumed to be valid.
         
-        :param row: The row to place the piece.
-        :param col: The col to place the piece.
+        :param row: The row to place the piece, (0-7)
+        :param col: The col to place the piece, (A-H)
         
         :return: True if the move was successful, False otherwise.
         """
@@ -123,6 +126,7 @@ class GameState:
         
         # Move was successful
         self.pass_count = 0
+        self.current_turn += 1
         self.history.append(self._generate_current_history())
         
         self.board.place_piece(row, col, self.current_player)
@@ -158,6 +162,8 @@ class GameState:
         if self.game_over:
             self.game_over = False
             self.winner = None
+        
+        self.current_turn -= 1
         
         last_state = self.history.pop()
         self.board.board['black'] = last_state['board'][0]
