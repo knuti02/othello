@@ -6,16 +6,28 @@ import "./Square.css";
 
 interface SquareProps {
   isEmpty: boolean;
+  isLegalMove: boolean;
   color: string;
+  row: number;
+  col: string;
   onClick: () => void;
 }
 
-const Square = ({ isEmpty, color, onClick }: SquareProps) => {
+const Square = ({
+  isEmpty,
+  isLegalMove,
+  color,
+  row,
+  col,
+  onClick,
+}: SquareProps) => {
   const [hoverRef, isHovered] = useHover();
   const chip = color === "black" ? blackChip : whiteChip;
 
   useEffect(() => {
-    console.log(isHovered, color);
+    if (isHovered) {
+      console.log(color, row + col);
+    }
   }, [isHovered]);
 
   const handleClick = () => {
@@ -27,7 +39,10 @@ const Square = ({ isEmpty, color, onClick }: SquareProps) => {
       {!isEmpty ? (
         <img src={chip} alt={color} ref={hoverRef} className="square" />
       ) : (
-        <div className="square" onClick={handleClick} />
+        <div
+          className={`square ${isLegalMove ? "legalMove" : ""}`}
+          onClick={handleClick}
+        />
       )}
     </>
   );

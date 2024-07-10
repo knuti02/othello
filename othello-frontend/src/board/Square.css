@@ -4,8 +4,11 @@
     background-color: green;
     border: 1px solid black;
   }
-  
+
+.square.legalMove {
+    background-color: lightgreen;
+}
 
 .square:hover {
-    background-color: lightgreen;
+    background-color: lightblue;
 }

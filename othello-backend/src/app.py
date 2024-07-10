@@ -1,15 +1,22 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import sqlite3
 from othello.GameState import GameState
 
 app = Flask(__name__)
-DATABASE = 'src/othello.db'
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+DATABASE = 'othello.db'
 gamestate_store = {}
 
 @app.before_first_request
 def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
+    
+    # Delete the database
+    c.execute('DROP TABLE IF EXISTS games')
+    c.execute('DROP TABLE IF EXISTS game_history')
+    
     c.execute('''
               CREATE TABLE IF NOT EXISTS games (
                   id INTEGER PRIMARY KEY, 
@@ -22,30 +29,32 @@ def init_db():
         )
     c.execute('''
               CREATE TABLE IF NOT EXISTS game_history (
-                  game_id INTEGER,
+                  id INTEGER,
                   turn INTEGER,
                   black_board INTEGER,
                   white_board INTEGER,
                   current_player TEXT,
-                  PRIMARY KEY (game_id, turn)
+                  PRIMARY KEY (id, turn)
               )'''
         )
     conn.commit()
     conn.close()
 
-def save_gamestate(game_id, game_state):
+def save_gamestate(game_id, gamestate):
+    print('Saving gamestate')
     conn = sqlite3.connect('othello.db')
     c = conn.cursor()
     c.execute('REPLACE INTO games (id, black_board, white_board, current_player, current_turn, game_over) VALUES (?, ?, ?, ?, ?, ?)', 
-              (game_id, game_state.black_board, game_state.white_board, game_state.current_player, game_state.current_turn, game_state.game_over))
+              (game_id, gamestate.board.get_board('black'), gamestate.board.get_board('white'), gamestate.current_player, gamestate.current_turn, gamestate.game_over))
     conn.commit()
     conn.close()
 
-def save_game_history(game_id, game_state):
+def save_game_history(game_id, gamestate):
+    print('Saving game history')
     conn = sqlite3.connect('othello.db')
     c = conn.cursor()
-    c.execute('INSERT INTO game_history (game_id, turn, black_board, white_board, current_player) VALUES (?, ?, ?, ?, ?)', 
-              (game_id, game_state.current_turn, game_state.black_board, game_state.white_board, game_state.current_player))
+    c.execute('INSERT OR IGNORE INTO game_history (id, turn, black_board, white_board, current_player) VALUES (?, ?, ?, ?, ?)', 
+              (game_id, gamestate.current_turn, gamestate.board.get_board('black'), gamestate.board.get_board('white'), gamestate.current_player))
     conn.commit()
     conn.close()
 
@@ -71,10 +80,10 @@ def load_game_history(game_id):
 
 @app.route('/init', methods=['POST'])
 def init():
-    game_id = request.json.get('game_id', 1)
+    game_id = str(request.json.get('game_id', 1))
     gamestate = GameState()
     gamestate_store[game_id] = gamestate
-    save_gamestate(gamestate)
+    save_gamestate(game_id, gamestate)
     save_game_history(game_id, gamestate)
     return jsonify({
         'black_board': gamestate.board.get_board('black'),
@@ -88,14 +97,19 @@ def init():
 def get_gamestate():
     game_id = request.args.get('game_id', 1)
     if game_id in gamestate_store:
+        print('Fetching from memory')
+        print(gamestate_store)
         gamestate = gamestate_store[game_id]
     else:
+        print('Fetching from database')
         gamestate = load_gamestate(game_id)
         if gamestate:
             gamestate_store[game_id] = gamestate
         else:
             return jsonify({'error': 'Game not found'})
-        
+
+    print(gamestate.board)
+    
     return jsonify({
         'black_board': gamestate.board.get_board('black'),
         'white_board': gamestate.board.get_board('white'),
@@ -112,7 +126,7 @@ def get_game_history():
 
 @app.route('/make_move', methods=['POST'])
 def make_move():
-    game_id = request.json.get('game_id', 1)
+    game_id = str(request.json.get('game_id', 1))
     row = request.json.get('row')
     col = request.json.get('col')
     
@@ -125,10 +139,14 @@ def make_move():
         else:
             return jsonify({'error': 'Game not found'})
         
+    print(gamestate.board)
     valid_move = gamestate.make_move(row, col)
+    print(gamestate.board)
+    
     if not valid_move:
         return jsonify({'error': 'Invalid move'})
     
+    gamestate_store[game_id] = gamestate
     save_gamestate(game_id, gamestate)
     save_game_history(game_id, gamestate)
     
@@ -139,6 +157,22 @@ def make_move():
         'game_over': gamestate.game_over,
         'current_turn': gamestate.current_turn
     })
+    
+@app.route('/get_legal_moves', methods=['GET'])
+def get_legal_moves():
+    game_id = request.args.get('game_id', 1)
+    if game_id in gamestate_store:
+        gamestate = gamestate_store[game_id]
+    else:
+        gamestate = load_gamestate(game_id)
+        if gamestate:
+            gamestate_store[game_id] = gamestate
+        else:
+            return jsonify({'error': 'Game not found'})
+        
+    legal_moves = gamestate.get_valid_moves(gamestate.current_player)
+    return jsonify(legal_moves)
+
 
 @app.route('/')
 def home():
@@ -146,4 +180,4 @@ def home():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5000, host='localhost')
