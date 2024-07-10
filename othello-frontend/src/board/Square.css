@@ -1,0 +1,11 @@
+.square {
+    height: 7vh;
+    width: 7vh;
+    background-color: green;
+    border: 1px solid black;
+  }
+  
+
+.square:hover {
+    background-color: lightgreen;
+}
