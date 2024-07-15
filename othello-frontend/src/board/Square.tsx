@@ -25,8 +25,10 @@ const Square = ({
   const chip = color === "black" ? blackChip : whiteChip;
 
   useEffect(() => {
-    if (isHovered) {
-      console.log(color, row + col);
+    if (isHovered && !isEmpty) {
+      console.log("Placed piece", color, row + col);
+    } else if (isHovered && isLegalMove) {
+      console.log("Legal move", color, row + col);
     }
   }, [isHovered]);
 
@@ -42,7 +44,12 @@ const Square = ({
         <div
           className={`square ${isLegalMove ? "legalMove" : ""}`}
           onClick={handleClick}
-        />
+          ref={hoverRef}
+        >
+          {isLegalMove && isHovered && (
+            <img src={chip} alt={color} className="faded" />
+          )}
+        </div>
       )}
     </>
   );

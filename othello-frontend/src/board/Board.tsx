@@ -30,7 +30,6 @@ const Board = () => {
   };
   const updateGamestate = async () => {
     const gameData = await fetchGamestate();
-    console.log(binToLst(gameData.black_board));
     setGameData(gameData);
   };
 
@@ -38,7 +37,6 @@ const Board = () => {
   useEffect(() => {
     const init = async () => {
       const gameData = await initGame();
-      console.log(binToLst(gameData.black_board));
       setGameData(gameData);
     };
 
@@ -47,7 +45,6 @@ const Board = () => {
 
   // Update legal moves when gameData changes
   useEffect(() => {
-    //console.log("Gamedata updated!", gameData);
     const fetchLegalMoves = async () => {
       const legalMoves = await getLegalMoves();
       return binToLst(legalMoves);
@@ -94,7 +91,7 @@ const Board = () => {
           key={i}
           isEmpty={square.isEmpty}
           isLegalMove={square.isLegalMove}
-          color={square.color}
+          color={square.isEmpty ? gameData.current_player : square.color}
           row={square.row}
           col={square.col}
           onClick={() => handleSquareClick(i)}

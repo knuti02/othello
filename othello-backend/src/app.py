@@ -139,9 +139,7 @@ def make_move():
         else:
             return jsonify({'error': 'Game not found'})
         
-    print(gamestate.board)
     valid_move = gamestate.make_move(row, col)
-    print(gamestate.board)
     
     if not valid_move:
         return jsonify({'error': 'Invalid move'})
@@ -171,7 +169,8 @@ def get_legal_moves():
             return jsonify({'error': 'Game not found'})
         
     legal_moves = gamestate.get_valid_moves(gamestate.current_player)
-    return jsonify(legal_moves)
+    print(gamestate._bitboard_to_rowcol(legal_moves))
+    return jsonify(bin(int(legal_moves)))
 
 
 @app.route('/')

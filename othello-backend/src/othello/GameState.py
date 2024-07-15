@@ -55,6 +55,7 @@ class GameState:
         
         self.valid_moves_bitboard_cache = {'black': 0, 'white': 0}
         self.player_can_capture_cache = {'black': 0, 'white': 0}
+        self.capturable_squares_cache = {'black': 0, 'white': 0}
         
         self.history = []
         self.include_stability = include_stability
@@ -314,67 +315,3 @@ class GameState:
     def _bitboard_to_rowcol(self, bitboard) -> list:
         rowcol = [(i // 8, chr((i % 8) + 65)) for i in range(64) if bitboard & (1 << i)]
         return rowcol
-            
-
-# if __name__ == "__main__":
-#     import time
-#     def benchmark(game_state, iterations=100_000):
-#         start = time.time()   
-#         for _ in range(iterations):
-#             game_state.make_move(3, 'C')
-#             game_state.make_move(2, 'C')
-#             game_state.make_move(2, 'D')
-#             game_state.undo_move()
-#             game_state.make_move(1, 'C')
-#             game_state.undo_move()
-#             game_state.undo_move()
-#             game_state.undo_move()
-            
-#         end = time.time()
-#         return end - start
-
-#     for i in range(5):
-#         print(f"Run {i + 1}")
-#         # Initialize game states
-#         print("Running benchmarks...")
-#         stability_game_state = GameState(include_stability=True)
-#         standard_game_state = GameState(include_stability=False)
-
-#         # Run benchmarks
-#         print("Stability game state")
-#         original_time = benchmark(stability_game_state)
-#         print(f"Seconds: {original_time:.4f}")
-#         print("Standard game state")
-#         new_time = benchmark(standard_game_state)
-#         print(f"Seconds: {new_time:.4f}")
-
-# if __name__ == "__main__":
-#     gamestate = GameState()
-#     print(gamestate.board)
-#     while True:
-#         print(f"Current player: {gamestate.current_player}")
-#         print("Valid moves: ")
-#         print(gamestate._bitboard_to_rowcol(gamestate.get_valid_moves(gamestate.current_player)))
-#         if gamestate.get_valid_moves(gamestate.current_player) == 0:
-#             print("No valid moves, skipping turn")
-#             gamestate.skip_turn()
-#             continue
-#         move = input("Enter rowcol (number+letter in one): ")
-#         if move == 'undo':
-#             gamestate.undo_move()
-#             print(gamestate.board)
-#             continue
-#         try:
-#             row = int(move[0])
-#             col = move[1].upper()
-#         except:
-#             print("Invalid input")
-#             continue
-        
-#         print(f"Making move {row}, {col}")
-#         gamestate.make_move(row, col)
-#         print(gamestate.board)
-#         print("Safe board black")
-#         print(bin(gamestate.board.safe_board['black']))
-#         print("Safe board white")
-#         print(bin(gamestate.board.safe_board['white']))
