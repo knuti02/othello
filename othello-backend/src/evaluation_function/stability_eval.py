@@ -1,13 +1,20 @@
 import math
+from constants import STABILITY_SAFE_WEIGHT, STABILITY_STABLE_WEIGHT, STABILITY_UNSTABLE_WEIGHT, STABILITY_STANDARD_WEIGHT, STABILITY_DYNAMIC_MAX_WEIGHT, STABILITY_DYNAMIC_MIDPOINT, STABILITY_DYNAMIC_STEEPNESS
 
-def stability_heuristics_weight_function(placed_pieces: int, maximum_weight: int = 50,  midpoint: int = 37, steepness: float = 0.15) -> float:
+def stability_heuristics_weight_function(
+        placed_pieces: int, 
+        maximum_weight: int = STABILITY_DYNAMIC_MAX_WEIGHT,  
+        midpoint: int = STABILITY_DYNAMIC_MIDPOINT, 
+        steepness: float = STABILITY_DYNAMIC_STEEPNESS
+    ) -> float:
+    
     return (-1*maximum_weight) / (1 + math.e ** (-1 * steepness * (placed_pieces - midpoint))) + maximum_weight
 
 def stability_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = True):
-    safe_weight = 1
-    stable_weight = 0
-    unstable_weight = -1
-    
+    """
+    Evaluation function for stability (can never be captured, 
+    can be captured but not in given gamestate, can be captured in current gamestate)
+    """
     def get_stability(player) -> int:
         player_board = gamestate.board.get_board(player)
         number_of_player_pieces = bin(player_board).count('1')
@@ -16,20 +23,15 @@ def stability_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = 
         stable_board = player_board & ~(safe_board | unstable_board)
         
         stability = (
-            (bin(safe_board).count('1') * safe_weight) / number_of_player_pieces + 
-            bin(stable_board).count('1') * stable_weight + 
-            bin(unstable_board).count('1') * unstable_weight / number_of_player_pieces
+            (bin(safe_board).count('1') * STABILITY_SAFE_WEIGHT) / number_of_player_pieces + 
+            bin(stable_board).count('1') * STABILITY_STABLE_WEIGHT + 
+            bin(unstable_board).count('1') * STABILITY_UNSTABLE_WEIGHT / number_of_player_pieces
         )
-        
-        # print(player)
-        # print(f"safe: {bin(safe_board).count('1')}")
-        # print(f"stable: {bin(stable_board).count('1')}")
-        # print(f"unstable: {bin(unstable_board).count('1')}")
         
         return stability
     
     # Calculate weight using the defined weight function
-    weight = stability_heuristics_weight_function(placed_pieces) if dynamic_weight else 25
+    weight = stability_heuristics_weight_function(placed_pieces) if dynamic_weight else STABILITY_STANDARD_WEIGHT
     
     player_stability = get_stability(player)
     opponent_stability = get_stability(opponent)

@@ -183,7 +183,7 @@ def get_ai_move():
     if not gamestate:
         return jsonify({'error': 'Game not found'})
     
-    _,move = AI_opponent.get_best_move(gamestate, combined_eval, 5, beta_features=True)
+    _,move = AI_opponent.get_best_move(gamestate, combined_eval, 5)
     AI_opponent.clear_cache()
     return jsonify({'row': move[0], 'col': move[1]})
 

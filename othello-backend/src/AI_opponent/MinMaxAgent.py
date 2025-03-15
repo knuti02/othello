@@ -4,11 +4,11 @@ class MinMaxAgent:
     def __init__(self, cache):
         self.cache = cache
         
-    def get_best_move(self, gamestate, evaluation_function, depth = 5, alpha=-float('inf'), beta=float('inf'), is_maximizing=True, player=None, beta_features=False):            
+    def get_best_move(self, gamestate, evaluation_function, depth = 5, alpha=-float('inf'), beta=float('inf'), is_maximizing=True, player=None):            
         # Base case
         if depth == 0 or gamestate.game_over:
             opponent = 'black' if player == 'white' else 'white'
-            value = evaluation_function(gamestate, player, opponent, beta_features = beta_features)
+            value = evaluation_function(gamestate, player, opponent)
             return value, None
         
         player = gamestate.current_player
@@ -49,7 +49,7 @@ class MinMaxAgent:
                     print("Exiting...")
                     exit(1)
             
-            value, _ = self.get_best_move(gamestate, evaluation_function, depth - 1, alpha, beta, not is_maximizing, player, beta_features = beta_features)
+            value, _ = self.get_best_move(gamestate, evaluation_function, depth - 1, alpha, beta, not is_maximizing, player)
             
             gamestate.undo_move()
 

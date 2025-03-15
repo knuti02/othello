@@ -1,16 +1,15 @@
 from evaluation_function.combined_eval import combined_eval
 from othello.GameState import GameState
 from AI_opponent.MinMaxAgent import MinMaxAgent
-from gamestates.generate_gamestates import generate_gamestates
 import time
 
 
 def print_heuristics(game):
     print("\nCurrent evaluation: ")
     print("------------------------------------------------------------------------------")
-    print("Black's current evaluation:", combined_eval(game, 'black', 'white', print_heuristics = True, beta_features = True))
+    print("Black's current evaluation:", combined_eval(game, 'black', 'white', print_heuristics = True))
     print("------------------------------------------------------------------------------")
-    print("White's current evaluation:", combined_eval(game, 'white', 'black', print_heuristics = True, beta_features = True))
+    print("White's current evaluation:", combined_eval(game, 'white', 'black', print_heuristics = True))
     print("------------------------------------------------------------------------------\n")
 
 def do_move(game, move):
@@ -53,7 +52,7 @@ def play_against_AI(game, player):
             print_heuristics()
             continue
         
-        _, move = agent.get_best_move(game, combined_eval, 5, beta_features=True)
+        _, move = agent.get_best_move(game, combined_eval, 5)
         agent.clear_cache()
                 
         print("AI move: ", move)
@@ -65,17 +64,16 @@ def play_against_AI(game, player):
         print_heuristics()
         
 
-def play_AI_vs_AI(game, beta_features):
+def play_AI_vs_AI(game):
     start = time.time()
     print(game.board)
     agent = MinMaxAgent(cache={})  
-    beta_features = beta_features
     
     while not game.game_over:
         # print("Current player:", game.current_player)
         # print("Current player's possible moves: ")
         # print(game._bitboard_to_rowcol(game.get_valid_moves(game.current_player)))
-        _, move = agent.get_best_move(game, combined_eval, 5, beta_features=beta_features)
+        _, move = agent.get_best_move(game, combined_eval, 5)
         agent.clear_cache()
         # print("AI move: ", move)
         if move == "skip":
@@ -84,13 +82,12 @@ def play_AI_vs_AI(game, beta_features):
             game.make_move(move[0], move[1])
         # print("Time taken: ", end - start)
         # print_heuristics(game)
-        beta_features = not beta_features
     end = time.time()
 
     print("Game over!")
     print("Winner: ", game.winner)
     print("Time taken: ", end - start)
-    return game.winner, not beta_features
+    return game.winner
 
 
 def compare_ai(gamestates):
@@ -111,13 +108,13 @@ def compare_ai(gamestates):
         print("Old features: ", old_features)
         
         while not gamestate.game_over:
-            _, new_features_move = agent.get_best_move(gamestate, combined_eval, 5, beta_features=True)
+            _, new_features_move = agent.get_best_move(gamestate, combined_eval, 5)
             agent.clear_cache()
             do_move(gamestate, new_features_move)
             if gamestate.game_over:
                 break
             
-            _, old_features_move = agent.get_best_move(gamestate, combined_eval, 5, beta_features=False)
+            _, old_features_move = agent.get_best_move(gamestate, combined_eval, 5)
             agent.clear_cache()
             do_move(gamestate, old_features_move)
 
@@ -142,9 +139,4 @@ def compare_ai(gamestates):
     print("Tie: ", tie)
 
 if __name__ == "__main__":
-    gamestates = generate_gamestates(100)
-    print("Generated gamestates. Starting comparison... \n")
-    compare_ai(gamestates)
-    
-    # play_AI_vs_AI(GameState(), beta_features = True)
-        
+    pass
