@@ -12,6 +12,7 @@ import { binToLst } from "../helper/binToLst";
 
 import { GameData } from "../interface/GameData";
 import { SquareData } from "../interface/SquareData";
+import { fetchAIMove } from "../api/fetchAIMove";
 
 const Board = () => {
   const [gameData, setGameData] = useState<GameData>({
@@ -32,6 +33,10 @@ const Board = () => {
     const gameData = await fetchGamestate();
     setGameData(gameData);
   };
+  const getAIMove = async () => {
+    const aiMove = await fetchAIMove();
+    return aiMove;
+  };
 
   // Initial fetch
   useEffect(() => {
@@ -45,6 +50,7 @@ const Board = () => {
 
   // Update legal moves when gameData changes
   useEffect(() => {
+    console.log(gameData.current_player);
     const fetchLegalMoves = async () => {
       const legalMoves = await getLegalMoves();
       return binToLst(legalMoves);
@@ -80,7 +86,15 @@ const Board = () => {
 
     postMakeMove(1, row, column).then(() => {
       console.log("Made move, new data");
-      updateGamestate();
+      //updateGamestate();
+
+      // ai move
+      getAIMove().then((aiMove) => {
+        console.log("AI move", aiMove);
+        postMakeMove(1, aiMove.row, aiMove.col).then(() => {
+          updateGamestate();
+        });
+      });
     });
   };
 

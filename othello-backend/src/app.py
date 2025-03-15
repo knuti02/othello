@@ -2,11 +2,15 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
 from othello.GameState import GameState
+from AI_opponent.MinMaxAgent import MinMaxAgent
+from evaluation_function.combined_eval import combined_eval
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 DATABASE = 'othello.db'
 gamestate_store = {}
+
+AI_opponent = MinMaxAgent(cache={})
 
 @app.before_first_request
 def init_db():
@@ -78,6 +82,16 @@ def load_game_history(game_id):
     history = [{'turn': row[0], 'black_board': row[1], 'white_board': row[2], 'current_player': row[3]} for row in rows]
     return history
 
+def retrieve_gamestate(game_id):
+    if game_id in gamestate_store:
+        return gamestate_store[game_id]
+    else:
+        gamestate = load_gamestate(game_id)
+        if gamestate:
+            gamestate_store[game_id] = gamestate
+            return gamestate
+        return None
+
 @app.route('/init', methods=['POST'])
 def init():
     game_id = str(request.json.get('game_id', 1))
@@ -130,14 +144,9 @@ def make_move():
     row = request.json.get('row')
     col = request.json.get('col')
     
-    if game_id in gamestate_store:
-        gamestate = gamestate_store[game_id]
-    else:
-        gamestate = load_gamestate(game_id)
-        if gamestate:
-            gamestate_store[game_id] = gamestate
-        else:
-            return jsonify({'error': 'Game not found'})
+    gamestate = retrieve_gamestate(game_id)
+    if not gamestate:
+        return jsonify({'error': 'Game not found'})
         
     valid_move = gamestate.make_move(row, col)
     
@@ -159,19 +168,24 @@ def make_move():
 @app.route('/get_legal_moves', methods=['GET'])
 def get_legal_moves():
     game_id = request.args.get('game_id', 1)
-    if game_id in gamestate_store:
-        gamestate = gamestate_store[game_id]
-    else:
-        gamestate = load_gamestate(game_id)
-        if gamestate:
-            gamestate_store[game_id] = gamestate
-        else:
-            return jsonify({'error': 'Game not found'})
+    gamestate = retrieve_gamestate(game_id)
+    if not gamestate:
+        return jsonify({'error': 'Game not found'})
         
     legal_moves = gamestate.get_valid_moves(gamestate.current_player)
     print(gamestate._bitboard_to_rowcol(legal_moves))
     return jsonify(bin(int(legal_moves)))
 
+@app.route('/get_ai_move', methods=['GET'])
+def get_ai_move():
+    game_id = request.args.get('game_id', 1)
+    gamestate = retrieve_gamestate(game_id)
+    if not gamestate:
+        return jsonify({'error': 'Game not found'})
+    
+    _,move = AI_opponent.get_best_move(gamestate, combined_eval, 5, beta_features=True)
+    AI_opponent.clear_cache()
+    return jsonify({'row': move[0], 'col': move[1]})
 
 @app.route('/')
 def home():
