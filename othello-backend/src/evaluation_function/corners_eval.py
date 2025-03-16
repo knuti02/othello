@@ -9,7 +9,7 @@ def corners_heuristics_weight_function(
     ) -> float:
     return (-1 * maximum_weight) / (1 + math.e ** (-1* steepness * (placed_pieces - midpoint))) + maximum_weight
 
-def corners_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = True):
+def corners_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = True, corners_hyperparameters = None):
     """
     Evaluation function for corners; scores based on how many corners you have 
     and how many corners you are able to capture in a given gamestate
@@ -22,7 +22,13 @@ def corners_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = Tr
 
         return corners_value + potential_corners
     
-    weight = corners_heuristics_weight_function(placed_pieces) if dynamic_weight else CORNERS_STANDARD_WEIGHT
+    if corners_hyperparameters is not None:
+        maximum_weight = corners_hyperparameters.get('maximum_weight', CORNERS_DYNAMIC_MAX_WEIGHT)
+        midpoint = corners_hyperparameters.get('midpoint', CORNERS_DYNAMIC_MIDPOINT)
+        steepness = corners_hyperparameters.get('steepness', CORNERS_DYNAMIC_STEEPNESS)
+        weight = corners_heuristics_weight_function(placed_pieces, maximum_weight, midpoint, steepness) if dynamic_weight else CORNERS_STANDARD_WEIGHT
+    else:
+        weight = corners_heuristics_weight_function(placed_pieces) if dynamic_weight else CORNERS_STANDARD_WEIGHT
     
     current_corners_value = corners_value(player)
     opponent_corners_value = corners_value(opponent)

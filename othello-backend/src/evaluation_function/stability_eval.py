@@ -10,7 +10,7 @@ def stability_heuristics_weight_function(
     
     return (-1*maximum_weight) / (1 + math.e ** (-1 * steepness * (placed_pieces - midpoint))) + maximum_weight
 
-def stability_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = True):
+def stability_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = True, stability_hyperparameters = None):
     """
     Evaluation function for stability (can never be captured, 
     can be captured but not in given gamestate, can be captured in current gamestate)
@@ -30,14 +30,18 @@ def stability_eval(gamestate, player, opponent, placed_pieces, dynamic_weight = 
         
         return stability
     
-    # Calculate weight using the defined weight function
-    weight = stability_heuristics_weight_function(placed_pieces) if dynamic_weight else STABILITY_STANDARD_WEIGHT
+    if stability_hyperparameters is not None:
+        maximum_weight = stability_hyperparameters.get('maximum_weight', STABILITY_DYNAMIC_MAX_WEIGHT)
+        midpoint = stability_hyperparameters.get('midpoint', STABILITY_DYNAMIC_MIDPOINT)
+        steepness = stability_hyperparameters.get('steepness', STABILITY_DYNAMIC_STEEPNESS)
+        weight = stability_heuristics_weight_function(placed_pieces, maximum_weight, midpoint, steepness) if dynamic_weight else STABILITY_STANDARD_WEIGHT
+    else:
+        weight = stability_heuristics_weight_function(placed_pieces) if dynamic_weight else STABILITY_STANDARD_WEIGHT
     
     player_stability = get_stability(player)
     opponent_stability = get_stability(opponent)
     
     stability_denominator = abs(player_stability) + abs(opponent_stability)
-    # prevent division by zero
     if stability_denominator == 0:
         return 0
     
