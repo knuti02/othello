@@ -1,0 +1,177 @@
+# Test 1
+COMBINED_MOBILITY_WEIGHT = 1
+COMBINED_STABILITY_WEIGHT = 1
+COMBINED_COINS_WEIGHT = 1
+COMBINED_CORNERS_WEIGHT = 1
+COMBINED_DANGER_ZONES_WEIGHT = 1
+COMBINED_EDGES_WEIGHT = 1
+COMBINED_WEDGES_WEIGHT = 1
+
+StandardModel winrate = 69.32%
+VariableModel winrate = 27.8%
+Draw = 2.88%
+
+Resulting optimal hyperparameters ->
+
+COMBINED_MOBILITY_WEIGHT = 0.5
+COMBINED_STABILITY_WEIGHT = 0.44
+COMBINED_COINS_WEIGHT = 0.4
+COMBINED_CORNERS_WEIGHT = 0.58
+COMBINED_DANGER_ZONES_WEIGHT = 0.54
+COMBINED_EDGES_WEIGHT = 0.53
+COMBINED_WEDGES_WEIGHT = 0.52
+
+Thoughts:
+Initial tests showed that the pre-established standard weights were better than random weights.
+Will try to test with new average weights as standard weights, as they were the ones that produced the best results.
+
+
+# Test 2
+hyperparameters...
+
+StandardModel winrate = 79%
+VariableModel winrate = 20%
+Draw = 1%
+
+Resulting optimal hyperparameters ->
+
+COMBINED_MOBILITY_WEIGHT = 0.56
+COMBINED_STABILITY_WEIGHT = 0.41
+COMBINED_COINS_WEIGHT = 0.42
+COMBINED_CORNERS_WEIGHT = 0.56
+COMBINED_DANGER_ZONES_WEIGHT = 0.57
+COMBINED_EDGES_WEIGHT = 0.52
+COMBINED_WEDGES_WEIGHT = 0.48
+
+Thoughts:
+New weights did indeed improve winrate, by 10 percentage points. Will continue this strategy until deminishing returns,
+at which point further tuning of evaluation-specific hyperparameters will be needed.
+
+# Test 3
+hyperparameters...
+
+StandardModel winrate = 80%
+VariableModel winrate = 19%
+Draw = 1%
+
+Resulting optimal hyperparameters ->
+
+COMBINED_MOBILITY_WEIGHT = 0.55
+COMBINED_STABILITY_WEIGHT = 0.38
+COMBINED_COINS_WEIGHT = 0.41
+COMBINED_CORNERS_WEIGHT = 0.57
+COMBINED_DANGER_ZONES_WEIGHT = 0.58
+COMBINED_EDGES_WEIGHT = 0.49
+COMBINED_WEDGES_WEIGHT = 0.51
+
+Thoughts:
+New weights slightly improved winrate. Mobility, Coins, Corners, DangerZones changed slightly.
+Stability, Edges, Wedges changed more. Stability seems to not be favoured, which is interesting.
+Might indicate faulty algorithmn? 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### helpers
+
+--------------
+
+HyperparamSelector = 
+DATATABLE(
+    "HyperparamName", STRING,
+    {
+        {"Mobility"},
+        {"Stability"},
+        {"Coin"},
+        {"Corners"},
+        {"DangerZones"},
+        {"Edges"},
+        {"Wedges"}
+    }
+)
+
+--------------
+
+AvgSelectedHyperparamPerWhite = 
+VAR SelectedHyperparam = SELECTEDVALUE(HyperparamSelector[HyperparamName]) 
+VAR WinningBlackModels = 
+    FILTER(
+        FactGame, 
+        FactGame[Winner] = "black" && FactGame[WhiteModelID] = SELECTEDVALUE(FactGame[WhiteModelID])
+    )
+
+VAR WinningBlackModelIDs = 
+    SELECTCOLUMNS(WinningBlackModels, "BlackModelID", FactGame[BlackModelID])
+
+RETURN
+    AVERAGEX(
+        FILTER(
+            DimModel, 
+            DimModel[ModelID] IN WinningBlackModelIDs
+        ),
+        SWITCH(
+            SelectedHyperparam,
+            "Mobility", DimModel[MobilityWeight],
+            "Stability", DimModel[StabilityWeight],
+            "Coin", DimModel[CoinWeight],
+            "Corners", DimModel[CornersWeight],
+            "DangerZones", DimModel[DangerZonesWeight],
+            "Edges", DimModel[EdgesWeight],
+            "Wedges", DimModel[WedgesWeight],
+            BLANK()
+        )
+    )
+
+--------------
+
+BlackModelWinrates = 
+
+VAR GamesPlayed =
+    CALCULATE(
+        COUNTROWS(FactGame),
+        FactGame[WhiteModelID] = SELECTEDVALUE(FactGame[WhiteModelID])
+    )
+
+VAR BlackWins =
+    CALCULATE(
+        COUNTROWS(FactGame),
+        FactGame[WhiteModelID] = SELECTEDVALUE(FactGame[WhiteModelID]),
+        FactGame[Winner] = "black"
+    )
+
+RETURN
+    DIVIDE(BlackWins, GamesPlayed, 0)
+
+--------------
+
+WhiteModelWinrates = 
+
+VAR GamesPlayed =
+    CALCULATE(
+        COUNTROWS(FactGame),
+        FactGame[WhiteModelID] = SELECTEDVALUE(FactGame[WhiteModelID])
+    )
+
+VAR WhiteWins =
+    CALCULATE(
+        COUNTROWS(FactGame),
+        FactGame[WhiteModelID] = SELECTEDVALUE(FactGame[WhiteModelID]),
+        FactGame[Winner] = "white"
+    )
+
+RETURN
+    DIVIDE(WhiteWins, GamesPlayed, 0)
+
+--------------
+
+odbcad32.exe

@@ -5,13 +5,14 @@ from .corners_eval import corners_eval
 from .danger_zones_eval import danger_zones_eval
 from .edges_eval import edges_eval
 from .wedges_eval import wedges_eval
+from .constants import *
 
 def combined_eval(
         gamestate, player, opponent_player, 
         dynamic_weight=True, print_heuristics=False, heuristic_weight=None,
         mobility_hyperparameters = None, stability_hyperparameters = None, 
         coins_hyperparameters = None, corners_hyperparameters = None, danger_zones_hyperparameters = None, 
-        edges_hyperparameters = None, wedges_hyperparameters = None
+        edges_hyperparameters = None, wedges_hyperparameters = None, return_heuristics = False
     ):
     
     if heuristic_weight is None:
@@ -29,13 +30,13 @@ def combined_eval(
     player_board, opponent_board = gamestate.board.get_board(player), gamestate.board.get_board(opponent_player)
     placed_pieces = bin(player_board | opponent_board).count('1')
     
-    mobility = heuristic_weight.get('mobility', 1) * mobility_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, mobility_hyperparameters)
-    stability = heuristic_weight.get('stability', 1) * stability_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, stability_hyperparameters)
-    coins = heuristic_weight.get('coins', 1) * coins_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, coins_hyperparameters)
-    corners = heuristic_weight.get('corners', 1) * corners_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, corners_hyperparameters)
-    danger_zones = heuristic_weight.get('danger_zones', 1) * danger_zones_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, danger_zones_hyperparameters)
-    edges = heuristic_weight.get('edges', 1) * edges_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, edges_hyperparameters)
-    wedges = heuristic_weight.get('wedges', 1) * wedges_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, wedges_hyperparameters)
+    mobility = heuristic_weight.get('mobility', COMBINED_MOBILITY_WEIGHT) * mobility_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, mobility_hyperparameters)
+    stability = heuristic_weight.get('stability', COMBINED_STABILITY_WEIGHT) * stability_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, stability_hyperparameters)
+    coins = heuristic_weight.get('coins', COMBINED_COINS_WEIGHT) * coins_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, coins_hyperparameters)
+    corners = heuristic_weight.get('corners', COMBINED_CORNERS_WEIGHT) * corners_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, corners_hyperparameters)
+    danger_zones = heuristic_weight.get('danger_zones', COMBINED_DANGER_ZONES_WEIGHT) * danger_zones_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, danger_zones_hyperparameters)
+    edges = heuristic_weight.get('edges', COMBINED_EDGES_WEIGHT) * edges_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, edges_hyperparameters)
+    wedges = heuristic_weight.get('wedges', COMBINED_WEDGES_WEIGHT) * wedges_eval(gamestate, player, opponent_player, placed_pieces, dynamic_weight, wedges_hyperparameters)
     
     combined_heuristics = mobility + stability + coins + corners + danger_zones + edges + wedges
     
@@ -47,5 +48,18 @@ def combined_eval(
         print("Danger zones: ", danger_zones)
         print("Edges: ", edges)
         print("Wedges: ", wedges)
+    
+    # For analysis purposes
+    if return_heuristics:
+        return {
+            'combined' : combined_heuristics,
+            'mobility' : mobility,
+            'stability' : stability,
+            'coins' : coins,
+            'corners' : corners,
+            'danger_zones' : danger_zones,
+            'edges' : edges,
+            'wedges' : wedges
+        }
     
     return combined_heuristics

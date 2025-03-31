@@ -152,6 +152,7 @@ class GameState:
         return True
     
     def skip_turn(self) -> None:
+        self.current_turn += 1
         self.history.append(self._generate_current_history())
         self.next_turn()
                 

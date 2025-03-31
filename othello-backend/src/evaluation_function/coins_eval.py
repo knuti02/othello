@@ -1,5 +1,5 @@
 import math
-from constants import COINS_STANDARD_WEIGHT, COINS_DYNAMIC_MAX_WEIGHT, COINS_DYNAMIC_MIDPOINT, COINS_DYNAMIC_STEEPNESS
+from .constants import COINS_STANDARD_WEIGHT, COINS_DYNAMIC_MAX_WEIGHT, COINS_DYNAMIC_MIDPOINT, COINS_DYNAMIC_STEEPNESS
 
 def coins_heuristics_weight_function(
         placed_pieces: int, 

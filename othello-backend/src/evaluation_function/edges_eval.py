@@ -1,5 +1,5 @@
 import math
-from constants import EDGES_STANDARD_WEIGHT, EDGES_DYNAMIC_MAX_WEIGHT, EDGES_DYNAMIC_MIDPOINT, EDGES_DYNAMIC_STEEPNESS
+from .constants import EDGES_STANDARD_WEIGHT, EDGES_DYNAMIC_MAX_WEIGHT, EDGES_DYNAMIC_MIDPOINT, EDGES_DYNAMIC_STEEPNESS
 
 def edges_heuristics_weight_function(
         placed_pieces: int, 
