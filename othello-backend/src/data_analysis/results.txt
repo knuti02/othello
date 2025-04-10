@@ -70,9 +70,41 @@ Stability, Edges, Wedges changed more. Stability seems to not be favoured, which
 Might indicate faulty algorithmn? 
 
 
+# Test 4
+Goals:
+We want to start testing for a higher search depth. Previous tests were at only search 
+depth 3, but from now we want to test 5. We will initially start with same hyperparameters as in #1
+and go on from there.
+
+COMBINED_MOBILITY_WEIGHT = 1
+COMBINED_STABILITY_WEIGHT = 1
+COMBINED_COINS_WEIGHT = 1
+COMBINED_CORNERS_WEIGHT = 1
+COMBINED_DANGER_ZONES_WEIGHT = 1
+COMBINED_EDGES_WEIGHT = 1
+COMBINED_WEDGES_WEIGHT = 1
 
 
+StandardModel winrate = 60%
+VariableModel winrate = 35%
+Draw = 5%
 
+Resulting optimal hyperparameters ->
+
+COMBINED_MOBILITY_WEIGHT = 0.59
+COMBINED_STABILITY_WEIGHT = 0.65
+COMBINED_COINS_WEIGHT = 0.43
+COMBINED_CORNERS_WEIGHT = 0.62
+COMBINED_DANGER_ZONES_WEIGHT = 0.51
+COMBINED_EDGES_WEIGHT = 0.55
+COMBINED_WEDGES_WEIGHT = 0.48
+
+Thoughts:
+Running a full simulation of 3^7 different games on search depth 5 is not feasable for future refrence.
+General trends seem to place a much larger importance on Stability than on lower search depths.
+A lazy solution could be to place a bias on stability and maybe corners on higher search depths,
+if the assumption of higher search depths benefitting from a higher weights on these areas is true.
+We also see a higher draw rate which might simply be because of the nature of higher search depths.
 
 
 

@@ -49,7 +49,7 @@ def play_against_AI(game, player):
             print(game._bitboard_to_rowcol(game.get_valid_moves(player)))
             input_move(game)
             print(game.board)
-            print_heuristics()
+            #print_heuristics()
             continue
         
         _, move = agent.get_best_move(game, combined_eval, 5)
@@ -61,7 +61,7 @@ def play_against_AI(game, player):
         else:
             game.make_move(move[0], move[1])
         print(game.board)
-        print_heuristics()
+        #print_heuristics()
         
 
 def play_AI_vs_AI(game):
@@ -139,4 +139,5 @@ def compare_ai(gamestates):
     print("Tie: ", tie)
 
 if __name__ == "__main__":
-    pass
+    game = GameState()
+    play_against_AI(game, "white")

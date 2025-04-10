@@ -197,7 +197,7 @@ def generate_dict_all_hyperparameters():
 def collect_data_weight_hyperparameters(db_name="src/data_analysis/othello_star_schema.db"):
     conn = connect_db(db_name)
     game_id = get_max_game_id(conn)
-    depth = 3
+    depth = 5
     # Standard model; should only be needed to be inserted once
     white_model_id = insert_model(conn, depth, {})
     
